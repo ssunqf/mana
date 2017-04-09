@@ -3,7 +3,7 @@ import binascii
 import os
 import signal
 
-from socket import inet_ntoa
+from socket import inet_ntoa, gethostbyname
 from struct import unpack
 
 import bencoder
@@ -41,6 +41,7 @@ BOOTSTRAP_NODES = (
     ("router.utorrent.com", 6881)
 )
 
+BOOTSTRAP_NODES = [(gethostbyname(x), y) for (x,y) in BOOTSTRAP_NODES]
 
 class Maga(asyncio.DatagramProtocol):
     def __init__(self, loop=None, bootstrap_nodes=BOOTSTRAP_NODES, interval=1):
