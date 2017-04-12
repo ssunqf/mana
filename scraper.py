@@ -13,7 +13,6 @@ def log(metainfo, infohash):
     else:
         sys.stderr.write('saw: '+infohash+'\n')
         sys.stderr.flush()
-        
 
 class Crawler(Maga):
     def __init__(self):
@@ -28,10 +27,8 @@ class Crawler(Maga):
                 infohash, peer_addr[0], peer_addr[1], loop=self.loop
             )
             log(metainfo, infohash)
-
     async def handle_announce_peer(self, infohash, addr, peer_addr):
         await self.handler(infohash, addr, peer_addr)
 
-
 crawler = Crawler()
-crawler.run(port=10001)
+crawler.run()#port=10001)
