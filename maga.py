@@ -3,6 +3,7 @@ import binascii
 import os
 import signal
 
+import socket
 from socket import inet_ntoa, gethostbyname
 from struct import unpack
 
@@ -49,23 +50,27 @@ class Maga(asyncio.DatagramProtocol):
         self.transport = None
         self.loop = loop or asyncio.get_event_loop()
         self.bootstrap_nodes = bootstrap_nodes
-        self.__running = False
+        self.running = False
         self.interval = interval
 
     def stop(self):
-        self.__running = False
-        self.loop.call_later(self.interval, self.loop.stop)
+        self.running = False
+        for task in asyncio.Task.all_tasks():
+            task.cancel()
 
     async def auto_find_nodes(self):
-        self.__running = True
-        while self.__running:
+        self.running = True
+        while self.running:
             await asyncio.sleep(self.interval)
             for node in self.bootstrap_nodes:
                 self.find_node(addr=node)
 
-    def run(self, port=6881):
+    def run(self, port=6881, stop_loop = True):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(('0.0.0.0', port))
         coro = self.loop.create_datagram_endpoint(
-                lambda: self, local_addr=('0.0.0.0', port)
+                lambda: self, sock=s
         )
         transport, _ = self.loop.run_until_complete(coro)
 
@@ -81,8 +86,21 @@ class Maga(asyncio.DatagramProtocol):
             self.find_node(addr=node, node_id=self.node_id)
 
         asyncio.ensure_future(self.auto_find_nodes(), loop=self.loop)
-        self.loop.run_forever()
-        self.loop.close()
+        async def until_canceled():
+             while True:
+                try:
+                     await asyncio.sleep(self.interval)
+                except asyncio.CancelledError:
+                     break
+        self.loop.run_until_complete(until_canceled())
+        self.transport.close()
+        try:
+             self.loop.run_until_complete(asyncio.gather(*asyncio.Task.all_tasks()))
+        except asyncio.CancelledError:
+             pass
+        if stop_loop == True:
+             self.loop.stop()
+             self.loop.close()
 
     def datagram_received(self, data, addr):
         try:
@@ -187,7 +205,7 @@ class Maga(asyncio.DatagramProtocol):
         self.transport = transport
 
     def connection_lost(self, exc):
-        self.__running = False
+        self.running = False
         self.transport.close()
 
     def send_message(self, data, addr):
