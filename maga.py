@@ -9,6 +9,11 @@ from struct import unpack
 
 import bencoder
 
+import memoize
+@memoize.memoize_with_expiry(360, num_args=1)
+def bencode(data):
+    return bencoder.bencode(data)
+
 
 def proper_infohash(infohash):
     if isinstance(infohash, bytes):
@@ -210,7 +215,7 @@ class Maga(asyncio.DatagramProtocol):
 
     def send_message(self, data, addr):
         data.setdefault("t", b"tt")
-        self.transport.sendto(bencoder.bencode(data), addr)
+        self.transport.sendto(bencode(data), addr)
 
     def fake_node_id(self, node_id=None):
         if node_id:
