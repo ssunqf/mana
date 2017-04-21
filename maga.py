@@ -11,7 +11,7 @@ import bencoder
 
 import memoize
 @memoize.memoize_with_expiry(360, num_args=1)
-def bencode(data):
+def memo_bencode(data):
     return bencoder.bencode(data)
 
 
@@ -187,7 +187,7 @@ class Maga(asyncio.DatagramProtocol):
                 }
             }, addr=addr)
         elif query_type == b"ping":
-            self.send_message({
+            self.send_message_common({
                 "t": b"tt",
                 "y": "r",
                 "r": {
@@ -197,7 +197,7 @@ class Maga(asyncio.DatagramProtocol):
         self.find_node(addr=addr, node_id=node_id)
 
     def ping(self, addr, node_id=None):
-        self.send_message({
+        self.send_message_common({
             "y": "q",
             "t": "pg",
             "q": "ping",
@@ -215,7 +215,11 @@ class Maga(asyncio.DatagramProtocol):
 
     def send_message(self, data, addr):
         data.setdefault("t", b"tt")
-        self.transport.sendto(bencode(data), addr)
+        self.transport.sendto(bencoder.bencode(data), addr)
+
+    def send_message_common(self, data, addr):
+        data.setdefault("t", b"tt")
+        self.transport.sendto(memo_bencode(data), addr)
 
     def fake_node_id(self, node_id=None):
         if node_id:

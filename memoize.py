@@ -1,5 +1,6 @@
 from decorator import decorator
 import time
+import frozendict
 def memoize_with_expiry(expiry_time=0, num_args=None):
     def _memoize_with_expiry(func, *args, **kwargs):
         func._cache = {}
@@ -7,7 +8,10 @@ def memoize_with_expiry(expiry_time=0, num_args=None):
         if kwargs:
             key = mem_args, frozenset(kwargs.iteritems())
         else:
-            key = mem_args
+            if type(mem_args[0]) == dict:
+                key = frozendict.frozendict(mem_args[0])
+            else:
+                key = mem_args
         if key in func._cache:
             result, timestamp = func._cache[key]
             # Check the age.
