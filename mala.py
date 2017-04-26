@@ -7,7 +7,7 @@ import struct
 from bencoder import bencode, bdecode
 
 import math
-
+import random
 
 class MessageType:
     REQUEST = 0
@@ -27,7 +27,7 @@ BT_HEADER = b'\x13BitTorrent protocol\x00\x00\x00\x00\x00\x10\x00\x01'
 
 
 def random_id(size=20):
-    return os.urandom(size)
+    return random.getrandbits(size * 8).to_bytes(size, "big")
 
 
 def get_ut_metadata(data):

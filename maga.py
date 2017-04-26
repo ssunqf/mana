@@ -8,6 +8,7 @@ from socket import inet_ntoa, gethostbyname
 from struct import unpack
 
 import bencoder
+import random
 
 import memoize
 @memoize.memoize_with_expiry(360, num_args=1)
@@ -23,7 +24,7 @@ def proper_infohash(infohash):
 
 
 def random_node_id(size=20):
-    return os.urandom(size)
+    return random.getrandbits(size * 8).to_bytes(size, "big")
 
 
 def split_nodes(nodes):
@@ -217,9 +218,9 @@ class Maga(asyncio.DatagramProtocol):
         data.setdefault("t", b"tt")
         self.transport.sendto(bencoder.bencode(data), addr)
 
-    def send_message_common(self, data, addr):
+    def send_message_common(self, data, addr, post = lambda x: x):
         data.setdefault("t", b"tt")
-        self.transport.sendto(memo_bencode(data), addr)
+        self.transport.sendto(post(memo_bencode(data)), addr)
 
     def fake_node_id(self, node_id=None):
         if node_id:
@@ -229,15 +230,15 @@ class Maga(asyncio.DatagramProtocol):
     def find_node(self, addr, node_id=None, target=None):
         if not target:
             target = random_node_id()
-        self.send_message({
+        self.send_message_common({
             "t": b"fn",
             "y": "q",
             "q": "find_node",
             "a": {
                 "id": self.fake_node_id(node_id),
-                "target": target
+                "target": "1"*20,
             }
-        }, addr=addr)
+        }, addr=addr, post = lambda x: x.replace(b"1"*20, target))
 
     async def handle_get_peers(self, infohash, addr):
         await self.handler(infohash, addr)
