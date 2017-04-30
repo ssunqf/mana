@@ -57,15 +57,17 @@ class Crawler(Maga):
     async def handle_announce_peer(self, infohash, addr, peer_addr):
         await self.handler(infohash, addr, peer_addr)
 
-crawler = Crawler()
-crawler.run(6881, False)
+port = int(sys.argv[1])
 
-if len(sys.argv) > 1 and sys.argv[1] == "--forever":
+crawler = Crawler()
+crawler.run(port, False)
+
+if len(sys.argv) > 1 and sys.argv[2] == "--forever":
     while True:
         new_crawler = Crawler()
         new_crawler.seen = crawler.seen
         del crawler
         crawler = new_crawler
         time.sleep(5)
-        new_crawler.run(6881, False)
+        new_crawler.run(port, False)
         print('>>> crawler round done', crawler.loop, new_crawler.loop)
