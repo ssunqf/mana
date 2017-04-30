@@ -1,2 +1,4 @@
-bencoder.pyx>=1.1.1
+bencoder.pyx
 uvloop
+decorator
+asyncio_redis
