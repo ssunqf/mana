@@ -10,12 +10,6 @@ from struct import unpack
 import bencoder
 import random
 
-import memoize
-@memoize.memoize_with_expiry(360, num_args=1)
-def memo_bencode(data):
-    return bencoder.bencode(data)
-
-
 def proper_infohash(infohash):
     if isinstance(infohash, bytes):
         # Convert bytes to hex
@@ -186,26 +180,26 @@ class Maga(asyncio.DatagramProtocol):
                     "id": self.fake_node_id(node_id),
                     "nodes": ""
                 }
-            }, addr=addr)
+            }, addr)
         elif query_type == b"ping":
-            self.send_message_common({
-                "t": b"tt",
+            self.send_message({
+                "t": "tt",
                 "y": "r",
                 "r": {
                     "id": self.fake_node_id(node_id)
                 }
-            }, addr=addr)
+            }, addr)
         self.find_node(addr=addr, node_id=node_id)
 
     def ping(self, addr, node_id=None):
-        self.send_message_common({
+        self.send_message({
             "y": "q",
             "t": "pg",
             "q": "ping",
             "a": {
                 "id": self.fake_node_id(node_id)
             }
-        }, addr=addr)
+        }, addr)
 
     def connection_made(self, transport):
         self.transport = transport
@@ -216,11 +210,10 @@ class Maga(asyncio.DatagramProtocol):
 
     def send_message(self, data, addr):
         data.setdefault("t", b"tt")
-        self.transport.sendto(bencoder.bencode(data), addr)
-
-    def send_message_common(self, data, addr, post = lambda x: x):
-        data.setdefault("t", b"tt")
-        self.transport.sendto(post(memo_bencode(data)), addr)
+        if "q" in data.keys() and data["q"] == "find_node":
+             self.transport.sendto(b"d1:ad2:id20:%s6:target20:%se1:q9:find_node1:t2:aa1:y1:qe" % (data["a"]["id"], data["a"]["target"]), addr)
+        else:
+             self.transport.sendto(bencoder.bencode(data), addr)
 
     def fake_node_id(self, node_id=None):
         if node_id:
@@ -230,15 +223,15 @@ class Maga(asyncio.DatagramProtocol):
     def find_node(self, addr, node_id=None, target=None):
         if not target:
             target = random_node_id()
-        self.send_message_common({
+        self.send_message({
             "t": b"fn",
             "y": "q",
             "q": "find_node",
             "a": {
                 "id": self.fake_node_id(node_id),
-                "target": "1"*20,
+                "target": target,
             }
-        }, addr=addr, post = lambda x: x.replace(b"1"*20, target))
+        }, addr)
 
     async def handle_get_peers(self, infohash, addr):
         await self.handler(infohash, addr)
