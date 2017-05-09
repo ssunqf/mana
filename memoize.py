@@ -21,7 +21,7 @@ def memoize_with_expiry(expiry_time=0, _cache=None, num_args=None):
             age = time() - timestamp
             if not expiry_time or age < expiry_time:
                 return result
-            result = func(*args, **kw)
+        result = func(*args, **kw)
         cache[key] = (result, time())
         return result
     return decorator(_memoize_with_expiry)
