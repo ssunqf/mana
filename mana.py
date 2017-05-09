@@ -62,7 +62,7 @@ port = int(sys.argv[1])
 crawler = Crawler()
 crawler.run(port, False)
 
-if len(sys.argv) > 1 and sys.argv[2] == "--forever":
+if len(sys.argv) > 2 and sys.argv[2] == "--forever":
     while True:
         new_crawler = Crawler()
         new_crawler.seen = crawler.seen
