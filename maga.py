@@ -7,7 +7,7 @@ import socket
 from socket import inet_ntoa, gethostbyname
 from struct import unpack
 
-import bencoder
+import better_bencode
 import random
 
 def proper_infohash(infohash):
@@ -104,16 +104,16 @@ class Maga(asyncio.DatagramProtocol):
 
     def datagram_received(self, data, addr):
         try:
-            msg = bencoder.bdecode(data)
+            msg = better_bencode.loads(data)
         except:
             return
         try:
             self.handle_message(msg, addr)
         except Exception as e:
             self.send_message(data={
-                "t": msg["t"],
-                "y": "e",
-                "e": [202, "Server Error"]
+                b"t": msg[b"t"],
+                b"y": b"e",
+                b"e": [202, b"Server Error"]
             }, addr=addr)
             raise e
 
@@ -144,14 +144,14 @@ class Maga(asyncio.DatagramProtocol):
         if query_type == b"get_peers":
             infohash = args[b"info_hash"]
             infohash = proper_infohash(infohash)
-            token = infohash[:2]
+            token = infohash[:2].encode('utf-8')
             self.send_message({
-                "t": msg[b"t"],
-                "y": "r",
-                "r": {
-                    "id": self.fake_node_id(node_id),
-                    "nodes": "",
-                    "token": token
+                b"t": msg[b"t"],
+                b"y": b"r",
+                b"r": {
+                    b"id": self.fake_node_id(node_id),
+                    b"nodes": b"",
+                    b"token": token
                 }
             }, addr=addr)
             await self.handle_get_peers(infohash, addr)
@@ -159,10 +159,10 @@ class Maga(asyncio.DatagramProtocol):
             infohash = args[b"info_hash"]
             tid = msg[b"t"]
             self.send_message({
-                "t": tid,
-                "y": "r",
-                "r": {
-                    "id": self.fake_node_id(node_id)
+                b"t": tid,
+                b"y": b"r",
+                b"r": {
+                    b"id": self.fake_node_id(node_id)
                 }
             }, addr=addr)
             peer_addr = [addr[0], addr[1]]
@@ -174,30 +174,30 @@ class Maga(asyncio.DatagramProtocol):
         elif query_type == b"find_node":
             tid = msg[b"t"]
             self.send_message({
-                "t": tid,
-                "y": "r",
-                "r": {
-                    "id": self.fake_node_id(node_id),
-                    "nodes": ""
+                b"t": tid,
+                b"y": b"r",
+                b"r": {
+                    b"id": self.fake_node_id(node_id),
+                    b"nodes": b""
                 }
             }, addr)
         elif query_type == b"ping":
             self.send_message({
-                "t": "tt",
-                "y": "r",
-                "r": {
-                    "id": self.fake_node_id(node_id)
+                b"t": b"tt",
+                b"y": b"r",
+                b"r": {
+                    b"id": self.fake_node_id(node_id)
                 }
             }, addr)
         self.find_node(addr=addr, node_id=node_id)
 
     def ping(self, addr, node_id=None):
         self.send_message({
-            "y": "q",
-            "t": "pg",
-            "q": "ping",
-            "a": {
-                "id": self.fake_node_id(node_id)
+            b"y": b"q",
+            b"t": b"pg",
+            b"q": b"ping",
+            b"a": {
+                b"id": self.fake_node_id(node_id)
             }
         }, addr)
 
@@ -209,27 +209,30 @@ class Maga(asyncio.DatagramProtocol):
         self.transport.close()
 
     def send_message(self, data, addr):
-        data.setdefault("t", b"tt")
-        if "q" in data.keys() and data["q"] == "find_node":
-             self.transport.sendto(b"d1:ad2:id20:%s6:target20:%se1:q9:find_node1:t2:aa1:y1:qe" % (data["a"]["id"], data["a"]["target"]), addr)
+        data.setdefault(b"t", b"tt")
+        if b"q" in data.keys() and data[b"q"] == b"find_node":
+             self.transport.sendto(b"d1:ad2:id20:%s6:target20:%se1:q9:find_node1:t2:aa1:y1:qe" % (data[b"a"][b"id"], data[b"a"][b"target"]), addr)
         else:
-             self.transport.sendto(bencoder.bencode(data), addr)
+             try:
+                  self.transport.sendto(better_bencode.dumps(data), addr)
+             except:
+                  print(data)
 
     def fake_node_id(self, node_id=None):
         if node_id:
-            return node_id[:-1]+self.node_id[-1:]
+            return (node_id[:-1]+self.node_id[-1:])
         return self.node_id
 
     def find_node(self, addr, node_id=None, target=None):
         if not target:
             target = random_node_id()
         self.send_message({
-            "t": b"fn",
-            "y": "q",
-            "q": "find_node",
-            "a": {
-                "id": self.fake_node_id(node_id),
-                "target": target,
+            b"t": b"fn",
+            b"y": b"q",
+            b"q": b"find_node",
+            b"a": {
+                b"id": self.fake_node_id(node_id),
+                b"target": target,
             }
         }, addr)
 

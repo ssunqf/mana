@@ -1,0 +1,16 @@
+
+## mana
+
+a fast, lean dht scraper
+
+
+### setup
+
+ > pip3 install -r requirements.txt
+
+ > python3 mana.py 6881
+
+### notes
+
+bencode profiling: https://bpaste.net/show/ddd35028724a
+

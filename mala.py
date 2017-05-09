@@ -4,8 +4,7 @@ import asyncio
 import binascii
 import struct
 
-from bencoder import bencode, bdecode
-
+from better_bencode import dumps as bencode, loads as bdecode
 import math
 import random
 
@@ -15,11 +14,11 @@ class MessageType:
     REJECT = 2
 
 
-BT_PROTOCOL = "BitTorrent protocol"
+BT_PROTOCOL = b"BitTorrent protocol"
 BT_PROTOCOL_LEN = len(BT_PROTOCOL)
 EXT_ID = 20
 EXT_HANDSHAKE_ID = 0
-EXT_HANDSHAKE_MESSAGE = bytes([EXT_ID, EXT_HANDSHAKE_ID]) + bencode({"m": {"ut_metadata": 1}})
+EXT_HANDSHAKE_MESSAGE = bytes([EXT_ID, EXT_HANDSHAKE_ID]) + bencode({b"m": {b"ut_metadata": 1}})
 
 BLOCK = math.pow(2, 14)
 MAX_SIZE = BLOCK * 1000
@@ -28,7 +27,6 @@ BT_HEADER = b'\x13BitTorrent protocol\x00\x00\x00\x00\x00\x10\x00\x01'
 
 def random_id(size=20):
     return random.getrandbits(size * 8).to_bytes(size, "big")
-
 
 def get_ut_metadata(data):
     ut_metadata = b"ut_metadata"
@@ -89,7 +87,7 @@ class WirePeerClient:
         self.writer.write(length + message)
 
     def request_piece(self, piece):
-        msg = bytes([EXT_ID, self.ut_metadata]) + bencode({"msg_type": 0, "piece": piece})
+        msg = bytes([EXT_ID, self.ut_metadata]) + bencode({b"msg_type": 0, b"piece": piece})
         self.write_message(msg)
 
     def pieces_complete(self):
