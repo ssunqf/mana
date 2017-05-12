@@ -28,9 +28,9 @@ class Crawler(Maga):
         self.connection = await asyncio_redis.Connection.create('localhost', 6379)
 
     async def handler(self, infohash, addr, peer_addr = None):
-        exists = await self.connection.hexists('hashes', infohash)
+        exists = await self.connection.exists(infohash)
         if self.running and (self.active < self.threshold) and (self.seen_ct < self.max) and not exists:
-            await self.connection.hset('hashes', infohash, '')
+            await self.connection.set(infohash, '', pexpire=int(6e8)) #expires in 1wk
             self.seen_ct += 1
             if peer_addr is None:
                 peer_addr = addr
