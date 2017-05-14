@@ -12,8 +12,10 @@ except:
 import time
 
 import asyncio_redis
+import bytearray
 
 f = open("/root/"+str(int(time.time()))+".ih.log", 'w')
+ih2bytes = lambda x: bytes(bytearray.fromhex(x))
 
 class Crawler(Maga):
     def __init__(self, loop=None, active_tcp_limit = 1000, max_per_session = 2500):
@@ -28,9 +30,9 @@ class Crawler(Maga):
         self.connection = await asyncio_redis.Connection.create('localhost', 6379)
 
     async def handler(self, infohash, addr, peer_addr = None):
-        exists = await self.connection.exists(infohash)
+        exists = await self.connection.exists(ih2bytes(infohash))
         if self.running and (self.active < self.threshold) and (self.seen_ct < self.max) and not exists:
-            await self.connection.set(infohash, '', pexpire=int(6e8)) #expires in 1wk
+            await self.connection.set(ih2bytes(infohash), '', pexpire=int(6e8)) #expires in 1wk
             self.seen_ct += 1
             if peer_addr is None:
                 peer_addr = addr
