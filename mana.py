@@ -12,7 +12,8 @@ except:
 import time
 
 import asyncio_redis
-import bytearray
+
+from asyncio_redis.encoders import BytesEncoder
 
 f = open("/root/"+str(int(time.time()))+".ih.log", 'w')
 ih2bytes = lambda x: bytes(bytearray.fromhex(x))
@@ -27,7 +28,7 @@ class Crawler(Maga):
         asyncio.get_event_loop().run_until_complete(self.connect_redis())
 
     async def connect_redis(self):
-        self.connection = await asyncio_redis.Connection.create('localhost', 6379)
+        self.connection = await asyncio_redis.Connection.create('localhost', 6379, encoder=BytesEncoder())
 
     async def handler(self, infohash, addr, peer_addr = None):
         exists = await self.connection.exists(ih2bytes(infohash))
