@@ -33,7 +33,7 @@ class Crawler(Maga):
     async def handler(self, infohash, addr, peer_addr = None):
         exists = await self.connection.exists(ih2bytes(infohash))
         if self.running and (self.active < self.threshold) and (self.seen_ct < self.max) and not exists:
-            await self.connection.set(ih2bytes(infohash), '', pexpire=int(6e8)) #expires in 1wk
+            await self.connection.set(ih2bytes(infohash), b'', pexpire=int(6e8)) #expires in 1wk
             self.seen_ct += 1
             if peer_addr is None:
                 peer_addr = addr
