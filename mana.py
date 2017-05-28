@@ -49,7 +49,7 @@ class Crawler(Maga):
     async def log(self, metainfo, infohash):
         if metainfo not in [False, None]:
             try:
-                out = infohash+' '+ metainfo[b'name'].decode('utf-8')+'\n'
+                out = infohash+' '+ metainfo[b'name'].decode('utf-8').replace('\n', '\\n')+'\n'
                 sys.stdout.write(out)
                 f.write(out)
                 f.flush()
