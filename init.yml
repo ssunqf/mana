@@ -28,3 +28,5 @@
      git: repo="https://github.com/itdaniher/mana.git" dest=/root/mana
    - name: install python requirements
      pip: requirements=/root/mana/requirements.txt virtualenv=/root/mana_venv
+   - name: launch session
+     shell: screen -d -m bash -c './mana/launch.sh'
