@@ -18,6 +18,8 @@
       - redis-server
       - screen
       - git
+      - bc
+      - psutils
    - name: install redis config
      copy: src=./redis.conf dest=/etc/redis/redis.conf owner=redis
    - name: restart redis
@@ -29,4 +31,4 @@
    - name: install python requirements
      pip: requirements=/root/mana/requirements.txt virtualenv=/root/mana_venv
    - name: launch session
-     shell: screen -d -m bash -c './mana/launch.sh'
+     shell: screen -d -m bash '/root/mana/launch.sh'
