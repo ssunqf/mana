@@ -5,6 +5,7 @@
      apt: name=aptitude state=installed
    - name: apt-get update && apt-get upgrade
      apt: update_cache=yes upgrade=yes
+     ignore_errors: yes
    - name: install list of packages
      apt: name={{item}} state=installed
      with_items:
@@ -20,10 +21,13 @@
       - git
       - bc
       - psutils
+     ignore_errors: yes
    - name: install redis config
      copy: src=./redis.conf dest=/etc/redis/redis.conf owner=redis
+     ignore_errors: yes
    - name: restart redis
      service: name=redis state=restarted
+     ignore_errors: yes
    - name: build python venv
      command: pyvenv-3.5 /root/mana_venv
    - name: checkout git
