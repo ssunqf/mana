@@ -3,6 +3,7 @@ from mala import get_metadata
 import sys
 
 import asyncio
+
 try:
     import uvloop
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -11,37 +12,31 @@ except:
 
 import time
 
-import asyncio_redis
+import handlebars
 
-from asyncio_redis.encoders import BytesEncoder
-
-f = open("/root/"+str(int(time.time()))+".ih.log", 'w')
+f = open(str(int(time.time()))+".ih.log", 'w')
 ih2bytes = lambda x: bytes(bytearray.fromhex(x))
 
 class Crawler(Maga):
     def __init__(self, loop=None, active_tcp_limit = 1000, max_per_session = 2500):
         super().__init__(loop)
         self.seen_ct = 0
-        self.active = 0
+        self.active = asyncio.Semaphore(active_tcp_limit)
         self.threshold = active_tcp_limit
         self.max = max_per_session
-        asyncio.get_event_loop().run_until_complete(self.connect_redis())
-
-    async def connect_redis(self):
-        self.connection = await asyncio_redis.Connection.create('localhost', 6379, encoder=BytesEncoder())
+        self.connection = asyncio.get_event_loop().run_until_complete(handlebars.init_redis('mana.sock'))
 
     async def handler(self, infohash, addr, peer_addr = None):
         exists = await self.connection.exists(ih2bytes(infohash))
-        if self.running and (self.active < self.threshold) and (self.seen_ct < self.max) and not exists:
+        if self.running and (self.seen_ct < self.max) and not exists:
             await self.connection.set(ih2bytes(infohash), b'', pexpire=int(6e8)) #expires in 1wk
             self.seen_ct += 1
             if peer_addr is None:
                 peer_addr = addr
-            self.active += 1
-            metainfo = await get_metadata(
-                infohash, peer_addr[0], peer_addr[1], loop=self.loop
-            )
-            self.active -= 1
+            async with self.active:
+                metainfo = await get_metadata(
+                    infohash, peer_addr[0], peer_addr[1], loop=self.loop
+                )
             await self.log(metainfo, infohash)
         if (self.seen_ct >= self.max):
             self.stop()
@@ -57,11 +52,9 @@ class Crawler(Maga):
                 print(infohash+'    (not rendered)')
 
 
-    async def handle_announce_peer(self, infohash, addr, peer_addr):
-        await self.handler(infohash, addr, peer_addr)
-
 port = int(sys.argv[1])
 
+handlebars.start_redis_server('mana.sock')
 crawler = Crawler()
 crawler.run(port, False)
 
