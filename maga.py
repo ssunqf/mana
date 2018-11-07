@@ -237,12 +237,7 @@ class Maga(asyncio.DatagramProtocol):
         }, addr)
 
     async def handle_get_peers(self, infohash, addr):
-        print(f'got peer request for {infohash} from {addr}')
-        await self.handler(infohash, addr)
+        await self.handler(infohash, addr, None, 'get_peer')
 
     async def handle_announce_peer(self, infohash, addr, peer_addr):
-        print(f'got peer announce for {infohash} from {addr} {peer_addr}')
-        await self.handler(infohash, peer_addr or addr)
-
-    async def handler(self, infohash, addr):
-        pass
+        await self.handler(infohash, addr, peer_addr, 'announce_peer')
