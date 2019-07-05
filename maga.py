@@ -44,6 +44,7 @@ BOOTSTRAP_NODES = (
 
 BOOTSTRAP_NODES = [(gethostbyname(x), y) for (x,y) in BOOTSTRAP_NODES]
 
+
 class Maga(asyncio.DatagramProtocol):
     def __init__(self, loop=None, bootstrap_nodes=BOOTSTRAP_NODES, interval=1):
         self.node_id = random_node_id()
@@ -211,7 +212,9 @@ class Maga(asyncio.DatagramProtocol):
     def send_message(self, data, addr):
         data.setdefault(b"t", b"tt")
         if b"q" in data.keys() and data[b"q"] == b"find_node":
-             self.transport.sendto(b"d1:ad2:id20:%s6:target20:%se1:q9:find_node1:t2:aa1:y1:qe" % (data[b"a"][b"id"], data[b"a"][b"target"]), addr)
+             self.transport.sendto(
+                 b"d1:ad2:id20:%s6:target20:%se1:q9:find_node1:t2:aa1:y1:qe" % (data[b"a"][b"id"], data[b"a"][b"target"]),
+                 addr)
         else:
              try:
                   self.transport.sendto(better_bencode.dumps(data), addr)
