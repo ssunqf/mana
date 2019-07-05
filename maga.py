@@ -46,7 +46,7 @@ BOOTSTRAP_NODES = [(gethostbyname(x), y) for (x,y) in BOOTSTRAP_NODES]
 
 
 class Maga(asyncio.DatagramProtocol):
-    def __init__(self, loop=None, bootstrap_nodes=BOOTSTRAP_NODES, interval=1):
+    def __init__(self, port, loop=None, bootstrap_nodes=BOOTSTRAP_NODES, interval=1):
         self.node_id = random_node_id()
         self.transport = None
         self.loop = loop or asyncio.get_event_loop()
@@ -87,13 +87,8 @@ class Maga(asyncio.DatagramProtocol):
             self.find_node(addr=node, node_id=self.node_id)
 
         asyncio.ensure_future(self.auto_find_nodes(), loop=self.loop)
-        async def until_canceled():
-             while True:
-                try:
-                     await asyncio.sleep(self.interval)
-                except asyncio.CancelledError:
-                     break
-        self.loop.run_until_complete(until_canceled())
+
+    def close(self, stop_loop=True):
         self.transport.close()
         try:
              self.loop.run_until_complete(asyncio.gather(*asyncio.Task.all_tasks()))

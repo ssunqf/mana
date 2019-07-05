@@ -159,5 +159,5 @@ async def get_metadata(infohash, ip, port, loop=None):
         loop = asyncio.get_event_loop()
 
     client = WirePeerClient(infohash)
-    await client.connect(ip, port, loop)
+    await asyncio.wait_for(client.connect(ip, port, loop), timeout=1)
     return await client.work()

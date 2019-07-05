@@ -16,58 +16,50 @@ except:
 
 import time
 
+INFOHASH_FOUND = 'INFOHASH_FOUND'
+INFOHASH_LAST_STAMP = 'INFOHASH_LAST_STAMP'
 
 f = open("ih.log", 'a')
 
 
 class Crawler(maga.Maga):
-    def __init__(self, loop=None, active_tcp_limit = 20, max_per_session = 500):
+    def __init__(self, loop=None, active_tcp_limit = 200, max_per_session = 500):
         super().__init__(loop)
         self.seen_ct = 0
-        self.active = asyncio.Semaphore(active_tcp_limit)
+        self.active_tcp_limit = asyncio.Semaphore(active_tcp_limit)
         self.threshold = active_tcp_limit
         self.max = max_per_session
         self.redis_client = asyncio.get_event_loop().run_until_complete(
                 aioredis.create_redis_pool('redis://localhost'))
-        self.backlog = 0
 
     async def handler(self, infohash, addr, peer_addr = None, reason = None):
         ih_bytes = bytes.fromhex(infohash)
         start_time = int(time.time()*1000)
-        try_for_metadata = False
-        added_timestamp = await self.redis_client.hget('infohash_ingress_timestamp', ih_bytes)
-        attempted_timestamp = int(await self.redis_client.hget('infohash_attempt_timestamp', ih_bytes) or b'0')
-        peer_addr = peer_addr or addr
-        if self.running and self.backlog < 10 and not added_timestamp and (start_time - attempted_timestamp) > 600:
-            await self.redis_client.hincrby('infohash_attempt_reason', reason, 1)
-            self.redis_client.hset('infohash_attempt_timestamp', ih_bytes, start_time)
-            print(f'{reason} {addr} {infohash} {self.backlog}')
-            self.backlog += 1
-            async with self.active:
-                self.backlog -= 1
-                try:
-                    metainfo = await self.fetch_from_url(infohash)
-                    if metainfo is None:
-                        client = mala.WirePeerClient(infohash)
-                        await asyncio.wait_for(client.connect(peer_addr[0], peer_addr[1], self.loop), timeout=1)
-                        metainfo = await client.work()
 
+        if await self.redis_client.sismember(INFOHASH_FOUND, ih_bytes):
+            return
+
+        last_stamp = await self.redis_client.hget(INFOHASH_LAST_STAMP, ih_bytes)
+        if self.running and last_stamp and start_time - last_stamp > 600:
+            peer_addr = peer_addr or addr
+            print(f'{reason} {addr} {infohash}')
+            async with self.active_tcp_limit:
+                try:
+                    metainfo = await mala.get_metadata(infohash, peer_addr[0], peer_addr[1], self.loop)
                     if metainfo:
                         await self.log(metainfo, infohash, peer_addr, reason)
-                        await self.redis_client.hset('infohash_ingress_timestamp', ih_bytes, start_time)
-                        await self.redis_client.hincrby('infohash_ingress_reason', reason, 1)
-                        print('ingress', await self.redis_client.hgetall('infohash_ingress_reason'))
-                        print('attempt', await self.redis_client.hgetall('infohash_attempt_reason'))
+                        await self.redis_client.sadd(INFOHASH_FOUND, ih_bytes)
+                        await self.redis_client.hdel(INFOHASH_LAST_STAMP, ih_bytes)
+                    else:
+                        await self.redis_client.hset(INFOHASH_LAST_STAMP, ih_bytes, start_time)
                 except (ConnectionRefusedError, ConnectionResetError, asyncio.streams.IncompleteReadError, asyncio.TimeoutError, OSError) as e:
                     if isinstance(e, OSError) and e.errno not in (101, 104, 111,113):
                         raise
                     pass
-        if (self.seen_ct >= self.max):
-            self.stop()
+                    await self.redis_client.hset(INFOHASH_LAST_STAMP, ih_bytes, start_time)
 
     async def log(self, metainfo, infohash, peer_addr, reason):
         if metainfo not in [False, None]:
-            self.seen_ct += 1
             try:
                 sanitized_name = metainfo[b"name"].decode().replace('\n', '|')
                 out = f'{infohash} {sanitized_name}\n'
@@ -80,25 +72,6 @@ class Crawler(maga.Maga):
             except UnicodeDecodeError:
                 print(infohash+'    (not rendered)')
 
-    async def fetch_from_url(self, infohash):
-        url = f'http://thetorrent.org/{infohash}.torrent'
-
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
-        }
-        async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(url) as response:
-                print(response.content_type)
-                if response.content_type == 'application/x-bittorrent':
-                    torrent_file = await response.text()
-                    print(torrent_file)
-                    return better_bencode.loads(torrent_file)
-                else:
-                    return None
-
-
-INFOHASH_FOUND = 'INFOHASH_FOUND'
-INFOHASH_UNFOUND = 'INFOHASH_UNFOUND'
 
 class InfoHashCrawler(maga.Maga):
     def __init__(self, redis_address=None, loop=None, active_tcp_limit = 20, max_per_session = 500):
@@ -124,12 +97,12 @@ class InfoHashCrawler(maga.Maga):
         if (await self.redis_client.sismember(INFOHASH_FOUND, infohash)) == 0:
             peer_addr = peer_addr or addr
             await self.redis_client.zadd(INFOHASH_UNFOUND,
-                                         int(time.time() * 1000),
+                                         int(time.time()),
                                          f'{infohash}:{peer_addr[0]}:{peer_addr[1]}')
 
 
 class InfoHashFecther:
-    def __init__(self, loop, redis_address=None, timeout=6000, active_tcp_limit=200):
+    def __init__(self, loop, redis_address=None, timeout=1, active_tcp_limit=200):
         self.loop = loop
         self.redis_client = self.loop.run_until_complete(
             aioredis.create_redis_pool('redis://localhost' if redis_address == None else redis_address))
@@ -140,17 +113,20 @@ class InfoHashFecther:
     async def run(self):
         while True:
             results = await self.redis_client.zrange(INFOHASH_UNFOUND, 0, 5, withscores=True)
-            if len(results) > 0:
-                self.redis_client.zremrangebyrank(INFOHASH_UNFOUND, 0, len(results))
+            if len(results) == 0:
+                asyncio.sleep(0.5)
+                continue
+            else:
+                await self.redis_client.zremrangebyrank(INFOHASH_UNFOUND, 0, 5)
 
-            for infohash, timestamp in results:
+            async for infohash, timestamp in results:
                 if time.time() - timestamp > self.timeout:
                     continue
                 infohash, ip, address = infohash.split(b':')
 
                 async with self.tcp_limit:
-                    metainfo = mala.get_metadata(infohash, ip, address, self.loop)
-
+                    metainfo = await mala.get_metadata(infohash, ip, address, self.loop)
+                    print(infohash, metainfo)
                     if metainfo:
                         await self.save(infohash, metainfo)
                         await self.redis_client.sadd(INFOHASH_FOUND, infohash)
@@ -173,18 +149,10 @@ port = int(sys.argv[1])
 
 loop = asyncio.get_event_loop()
 fetcher = InfoHashFecther(loop)
-asyncio.ensure_future(fetcher.run(), loop=loop)
+asyncio.create_task(fetcher.run(), loop=loop)
 
 time.sleep(1)
 crawler = InfoHashCrawler()
 crawler.run(port, False)
 
-if len(sys.argv) > 2 and sys.argv[2] == "--forever":
-    while True:
-        new_crawler = InfoHashCrawler()
-        new_crawler.seen = crawler.seen
-        del crawler
-        crawler = new_crawler
-        time.sleep(5)
-        new_crawler.run(port, False)
-        print('>>> crawler round done', crawler.loop, new_crawler.loop)
+loop.run_forever()
