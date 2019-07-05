@@ -8,22 +8,6 @@ import struct
 from better_bencode import dumps as bencode, loads as bdecode
 import math
 import random
-from types import SimpleNamespace, TracebackType
-from typing import (  # noqa
-    Any,
-    Coroutine,
-    Generator,
-    Generic,
-    Iterable,
-    List,
-    Mapping,
-    Optional,
-    Set,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-)
 
 
 class MessageType:
@@ -61,15 +45,11 @@ def get_metadata_size(data):
 
 
 class WirePeerClient:
-    def __init__(self, infohash, ip, port, loop=None):
+    def __init__(self, infohash):
         if isinstance(infohash, str):
             infohash = binascii.unhexlify(infohash.upper())
         self.infohash = infohash
         self.peer_id = random_id()
-
-        self.ip = ip
-        self.port = port
-        self.loop = loop if loop else asyncio.get_event_loop()
 
         self.writer = None
         self.reader = None
@@ -81,14 +61,16 @@ class WirePeerClient:
         self.pieces_received_num = 0
         self.pieces = None
 
-    async def _connect(self):
-        if self.writer is None:
-            self.reader, self.writer = await asyncio.open_connection(
-                self.ip, self.port, loop=self.loop
-            )
+    async def connect(self, ip, port, loop):
+        self.reader, self.writer = await asyncio.open_connection(
+            ip, port, loop=loop
+        )
 
     def close(self):
-        self.writer.close()
+        try:
+            self.writer.close()
+        except:
+            pass
 
     def check_handshake(self, data):
         # Check BT Protocol Prefix
@@ -115,17 +97,16 @@ class WirePeerClient:
 
         if len(metainfo) != self.metadata_size:
             # Wrong size
-            return None
+            return self.close()
 
         infohash = hashlib.sha1(metainfo).hexdigest()
         if binascii.unhexlify(infohash.upper()) != self.infohash:
             # Wrong infohash
-            return None
+            return self.close()
 
         return bdecode(metainfo)
 
     async def work(self):
-        await asyncio.wait_for(self._connect(), timeout=1)
         self.writer.write(BT_HEADER + self.infohash + self.peer_id)
         while True:
             if not self.handshaked:
@@ -134,7 +115,7 @@ class WirePeerClient:
                     # Send EXT Handshake
                     self.write_message(EXT_HANDSHAKE_MESSAGE)
                 else:
-                    return None
+                    return self.close()
 
             total_message_length, msg_id = struct.unpack("!IB", await self.reader.readexactly(5))
             # Total message length contains message id length, remove it
@@ -150,7 +131,7 @@ class WirePeerClient:
                     self.ut_metadata = get_ut_metadata(extend_payload)
                     self.metadata_size = get_metadata_size(extend_payload)
                 except:
-                    return None
+                    return self.close()
                 self.pieces_num = math.ceil(self.metadata_size / BLOCK)
                 self.pieces = [False] * self.pieces_num
                 self.request_piece(0)
@@ -160,26 +141,17 @@ class WirePeerClient:
                 split_index = extend_payload.index(b"ee")+2
                 info = bdecode(extend_payload[:split_index])
                 if info[b'msg_type'] != MessageType.DATA:
-                    return None
+                    return self.close()
                 if info[b'piece'] != self.pieces_received_num:
-                    return None
+                    return self.close()
                 self.pieces[info[b'piece']] = extend_payload[split_index:]
             except:
-                return None
+                return self.close()
             self.pieces_received_num += 1
             if self.pieces_received_num == self.pieces_num:
                 return self.pieces_complete()
             else:
                 self.request_piece(self.pieces_received_num)
-
-    async def __aenter__(self) -> 'WirePeerClient':
-        return self
-
-    async def __aexit__(self,
-                        exc_type: Optional[Type[BaseException]],
-                        exc_val: Optional[BaseException],
-                        exc_tb: Optional[TracebackType]) -> None:
-        await self.close()
 
 
 async def get_metadata(infohash, ip, port, loop=None):

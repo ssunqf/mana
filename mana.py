@@ -149,8 +149,7 @@ class InfoHashFecther:
                 infohash, ip, address = infohash.split(b':')
 
                 async with self.tcp_limit:
-                    async with mala.WirePeerClient(infohash, ip, address, loop=self.loop) as client:
-                        metainfo = client.work()
+                    metainfo = mala.get_metadata(infohash, ip, address, self.loop)
 
                     if metainfo:
                         await self.save(infohash, metainfo)
@@ -173,7 +172,7 @@ class InfoHashFecther:
 port = int(sys.argv[1])
 
 loop = asyncio.get_event_loop()
-fetcher = InfoHashFecther()
+fetcher = InfoHashFecther(loop)
 asyncio.ensure_future(fetcher.run(), loop=loop)
 
 time.sleep(1)
