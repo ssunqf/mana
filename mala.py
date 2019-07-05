@@ -61,7 +61,7 @@ def get_metadata_size(data):
 
 
 class WirePeerClient:
-    def __init__(self, infohash, ip, port):
+    def __init__(self, infohash, ip, port, loop=None):
         if isinstance(infohash, str):
             infohash = binascii.unhexlify(infohash.upper())
         self.infohash = infohash
@@ -69,6 +69,7 @@ class WirePeerClient:
 
         self.ip = ip
         self.port = port
+        self.loop = loop if loop else asyncio.get_event_loop()
 
         self.writer = None
         self.reader = None
@@ -83,14 +84,11 @@ class WirePeerClient:
     async def _connect(self):
         if self.writer is None:
             self.reader, self.writer = await asyncio.open_connection(
-                self.ip, self.port, loop=asyncio.get_event_loop()
+                self.ip, self.port, loop=self.loop
             )
 
     def close(self):
-        try:
-            self.writer.close()
-        except:
-            pass
+        self.writer.close()
 
     def check_handshake(self, data):
         # Check BT Protocol Prefix
@@ -117,17 +115,17 @@ class WirePeerClient:
 
         if len(metainfo) != self.metadata_size:
             # Wrong size
-            return self.close()
+            return None
 
         infohash = hashlib.sha1(metainfo).hexdigest()
         if binascii.unhexlify(infohash.upper()) != self.infohash:
             # Wrong infohash
-            return self.close()
+            return None
 
         return bdecode(metainfo)
 
     async def work(self):
-        await self._connect()
+        await asyncio.wait_for(self._connect(), timeout=1)
         self.writer.write(BT_HEADER + self.infohash + self.peer_id)
         while True:
             if not self.handshaked:
@@ -136,7 +134,7 @@ class WirePeerClient:
                     # Send EXT Handshake
                     self.write_message(EXT_HANDSHAKE_MESSAGE)
                 else:
-                    return self.close()
+                    return None
 
             total_message_length, msg_id = struct.unpack("!IB", await self.reader.readexactly(5))
             # Total message length contains message id length, remove it
@@ -152,7 +150,7 @@ class WirePeerClient:
                     self.ut_metadata = get_ut_metadata(extend_payload)
                     self.metadata_size = get_metadata_size(extend_payload)
                 except:
-                    return self.close()
+                    return None
                 self.pieces_num = math.ceil(self.metadata_size / BLOCK)
                 self.pieces = [False] * self.pieces_num
                 self.request_piece(0)
@@ -162,12 +160,12 @@ class WirePeerClient:
                 split_index = extend_payload.index(b"ee")+2
                 info = bdecode(extend_payload[:split_index])
                 if info[b'msg_type'] != MessageType.DATA:
-                    return self.close()
+                    return None
                 if info[b'piece'] != self.pieces_received_num:
-                    return self.close()
+                    return None
                 self.pieces[info[b'piece']] = extend_payload[split_index:]
             except:
-                return self.close()
+                return None
             self.pieces_received_num += 1
             if self.pieces_received_num == self.pieces_num:
                 return self.pieces_complete()

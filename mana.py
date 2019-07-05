@@ -101,7 +101,8 @@ INFOHASH_FOUND = 'INFOHASH_FOUND'
 INFOHASH_UNFOUND = 'INFOHASH_UNFOUND'
 
 class InfoHashCrawler(maga.Maga):
-    def __init__(self, redis_address=None):
+    def __init__(self, redis_address=None, loop=None, active_tcp_limit = 20, max_per_session = 500):
+        super(InfoHashCrawler, self).__init__(loop)
         self.redis_client = asyncio.get_event_loop().run_until_complete(
             aioredis.create_redis_pool('redis://localhost' if redis_address == None else redis_address))
 
@@ -109,13 +110,16 @@ class InfoHashCrawler(maga.Maga):
         self.announce_peer_count = 0
 
     async def handler(self, infohash, addr, peer_addr = None, reason = None):
-        if reason == 'get_peers':
+        if reason == 'get_peer':
             self.get_peers_count += 1
         elif reason == 'announce_peer':
             self.announce_peer_count += 1
 
         if self.get_peers_count % 1000 == 0:
-            print(f'get_peers: {self.get_peers_count}\tannounce_peer: {self.announce_peer_count}')
+            print(f'get_peer: {self.get_peers_count}\tannounce_peer: {self.announce_peer_count}')
+            found_count = await self.redis_client.scard(INFOHASH_FOUND)
+            unfound_count = await self.redis_client.zcard(INFOHASH_UNFOUND)
+            print(f'found: {found_count}\tunfound:{unfound_count}')
 
         if (await self.redis_client.sismember(INFOHASH_FOUND, infohash)) == 0:
             peer_addr = peer_addr or addr
@@ -125,8 +129,9 @@ class InfoHashCrawler(maga.Maga):
 
 
 class InfoHashFecther:
-    def __init__(self, redis_address=None, timeout=6000, active_tcp_limit=200):
-        self.redis_client = asyncio.get_event_loop().run_until_complete(
+    def __init__(self, loop, redis_address=None, timeout=6000, active_tcp_limit=200):
+        self.loop = loop
+        self.redis_client = self.loop.run_until_complete(
             aioredis.create_redis_pool('redis://localhost' if redis_address == None else redis_address))
 
         self.tcp_limit = asyncio.Semaphore(active_tcp_limit)
@@ -135,20 +140,21 @@ class InfoHashFecther:
     async def run(self):
         while True:
             results = await self.redis_client.zrange(INFOHASH_UNFOUND, 0, 5, withscores=True)
-            self.redis_client.zremrangebyrank(INFOHASH_UNFOUND, 0, len(results)/2)
-            assert len(results) % 2 == 0
-            for offset in range(0, len(results), 2):
-                infohash, timestamp = results[offset:offset+2]
+            if len(results) > 0:
+                self.redis_client.zremrangebyrank(INFOHASH_UNFOUND, 0, len(results))
+
+            for infohash, timestamp in results:
                 if time.time() - timestamp > self.timeout:
                     continue
-                infohash, ip, address = infohash.split(':')
+                infohash, ip, address = infohash.split(b':')
 
                 async with self.tcp_limit:
-                    async with mala.WirePeerClient(infohash, ip, address, self.loop) as client:
+                    async with mala.WirePeerClient(infohash, ip, address, loop=self.loop) as client:
                         metainfo = client.work()
-                        if metainfo:
-                            await self.save(infohash, metainfo)
-                            await self.redis_client.sadd(INFOHASH_FOUND, infohash)
+
+                    if metainfo:
+                        await self.save(infohash, metainfo)
+                        await self.redis_client.sadd(INFOHASH_FOUND, infohash)
 
     async def save(self, infohash, metainfo):
         if metainfo not in [False, None]:
@@ -166,8 +172,9 @@ class InfoHashFecther:
 
 port = int(sys.argv[1])
 
+loop = asyncio.get_event_loop()
 fetcher = InfoHashFecther()
-asyncio.get_event_loop().create_task(fetcher.run)
+asyncio.ensure_future(fetcher.run(), loop=loop)
 
 time.sleep(1)
 crawler = InfoHashCrawler()
