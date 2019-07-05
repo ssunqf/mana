@@ -88,8 +88,6 @@ class Maga(asyncio.DatagramProtocol):
 
         asyncio.ensure_future(self.auto_find_nodes(), loop=self.loop)
 
-    def close(self, stop_loop=True):
-        self.transport.close()
         try:
              self.loop.run_until_complete(asyncio.gather(*asyncio.Task.all_tasks()))
         except asyncio.CancelledError:

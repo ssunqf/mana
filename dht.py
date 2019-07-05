@@ -424,7 +424,7 @@ class DHT_Process(Thread):
                 else:
                     port = msg["a"]["port"]
                     if port < 1 or port > 65535: return
-                self.master.log(infohash, (address[0], port))
+                self.master.save(infohash, (address[0], port))
         except Exception:
             pass
         finally:
@@ -497,7 +497,7 @@ class Master(Thread):
     def downloadMetadata(self):
         # 100 threads for download metadata
         for i in range(0, thread_num):
-            # when queue is 0, wait for data to log
+            # when queue is 0, wait for data to save
             if self.queue.qsize() == 0:
                 sleep(1)
                 continue
