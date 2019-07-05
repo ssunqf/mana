@@ -5,8 +5,10 @@ import asyncio
 import aioredis
 import aiohttp
 import itertools
+import aiopg
+from elasticsearch_async import AsyncElasticsearch
 
-import better_bencode
+from better_bencode import dumps as bencode, loads as bdecode
 
 try:
     import uvloop
@@ -15,6 +17,8 @@ except:
     pass
 
 import time
+
+TORRENT_INDEX = 'torrent'
 
 INFOHASH_FOUND = 'INFOHASH_FOUND'
 INFOHASH_LAST_STAMP = 'INFOHASH_LAST_STAMP'
@@ -31,6 +35,10 @@ class Crawler(maga.Maga):
 
         self.redis_client = asyncio.get_event_loop().run_until_complete(
                 aioredis.create_redis_pool('redis://localhost'))
+
+        self.es_client = AsyncElasticsearch(hosts=['localhost'])
+
+        self.es_client.indices.create(index=TORRENT_INDEX, ignore=400)
 
         self.get_peer_count = 0
         self.announce_peer_count = 0
@@ -50,16 +58,17 @@ class Crawler(maga.Maga):
         last_stamp = int(await self.redis_client.hget(INFOHASH_LAST_STAMP, ih_bytes) or b'0')
 
         start_time = int(time.time()*1000)
-        if self.running and last_stamp and start_time - last_stamp > 600:
+        if self.running and start_time - last_stamp > 600:
             peer_addr = peer_addr or addr
             print(f'{reason} {addr} {infohash}')
             async with self.active_tcp_limit:
                 try:
                     self.try_metainfo_count += 1
-                    metainfo = await mala.get_metadata(infohash, peer_addr[0], peer_addr[1], self.loop)
+                    metadata = await mala.get_metadata(infohash, peer_addr[0], peer_addr[1], self.loop)
+                    metainfo = bencode(metadata)
                     if metainfo:
                         self.success_metainfo_count += 1
-                        await self.save(metainfo, infohash, peer_addr, reason)
+                        await self.save_es(metainfo, infohash, peer_addr, reason)
                         await self.redis_client.sadd(INFOHASH_FOUND, ih_bytes)
                         await self.redis_client.hdel(INFOHASH_LAST_STAMP, ih_bytes)
                     else:
@@ -71,7 +80,7 @@ class Crawler(maga.Maga):
                     await self.redis_client.hset(INFOHASH_LAST_STAMP, ih_bytes, start_time)
 
         duration = start_time - self.stat_time
-        if start_time - self.stat_time > 60000:
+        if self.get_peer_count % 10000 == 0:
             print(f'speed(per second): get_peer={self.get_peer_count * 1000 / duration}\t'
                   f'announce_peer={self.announce_peer_count * 1000 / duration}\t'
                   f'try_metainfo={self.try_metainfo_count * 1000 / duration}\t'
@@ -92,6 +101,18 @@ class Crawler(maga.Maga):
                 f.flush()
             except UnicodeDecodeError:
                 print(infohash+'    (not rendered)')
+
+    async def save_es(self, infohash, metadata, metainfo):
+        if metainfo not in [False, None]:
+            sanitized_name = metainfo[b"name"].decode().replace('\n', '|')
+            print(f'{infohash} {sanitized_name}')
+            if metainfo.get(b'files'):
+                filepaths = [(b'/'.join(x.get(b'path.utf-8') or x.get(b'path'))).decode() for x in metainfo[b'files']]
+                print(filepaths)
+
+            await self.es_client.index(index=TORRENT_INDEX,
+                                       id=infohash,
+                                       body={"metadata": metadata, "metainfo": metainfo})
 
 
 if __name__ == '__main__':

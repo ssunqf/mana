@@ -104,7 +104,8 @@ class WirePeerClient:
             # Wrong infohash
             return self.close()
 
-        return bdecode(metainfo)
+        return metainfo
+        # return bdecode(metainfo)
 
     async def work(self):
         self.writer.write(BT_HEADER + self.infohash + self.peer_id)
