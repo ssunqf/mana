@@ -6,7 +6,9 @@ import base64
 import asyncio
 import aioredis
 
-import pg
+import database
+
+from torrent import torrent2json
 
 from elasticsearch_async import AsyncElasticsearch
 
@@ -25,20 +27,6 @@ TORRENT_INDEX = 'torrent'
 INFOHASH_FOUND = 'INFOHASH_FOUND'
 INFOHASH_LAST_STAMP = 'INFOHASH_LAST_STAMP'
 
-
-
-
-async def save_db(queue: asyncio.Queue):
-    dsn = 'dbname=torrent user=test password=passwd host=127.0.0.1'
-    async with aiopg.create_pool(dsn) as pool:
-        infohash, metadata, metainfo = await queue.get()
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cursor:
-                cursor.update('')
-
-
-
-
 class Crawler(maga.Maga):
     def __init__(self, loop=None, active_tcp_limit = 500):
         super().__init__(loop)
@@ -50,6 +38,8 @@ class Crawler(maga.Maga):
                 aioredis.create_redis_pool('redis://localhost'))
 
         self.es_client = AsyncElasticsearch(hosts=['localhost'])
+
+        self.db_client = database.Torrent(loop)
 
         mapping = '''
             {  
@@ -95,7 +85,7 @@ class Crawler(maga.Maga):
                     self.try_metainfo_count += 1
                     metadata = await mala.get_metadata(infohash, peer_addr[0], peer_addr[1], self.loop)
                     if metadata:
-                        metainfo = bdecode(metadata)
+                        metainfo = torrent2json(metadata)
                         self.success_metainfo_count += 1
                         await self.save_db(infohash, metadata, metainfo)
                         await self.redis_client.sadd(INFOHASH_FOUND, ih_bytes)
@@ -117,31 +107,15 @@ class Crawler(maga.Maga):
 
             print(f'fetch metainfo success ratio = {self.success_metainfo_count / self.try_metainfo_count}')
 
-    async def save_es(self, infohash, metadata, metainfo):
-        if metainfo not in [False, None]:
-            sanitized_name = metainfo[b"name"].decode().replace('\n', '|')
-            print(f'{infohash} {sanitized_name}')
-            if metainfo.get(b'files'):
-                filepaths = [(b'/'.join(x.get(b'path.utf-8') or x.get(b'path'))).decode() for x in metainfo[b'files']]
-                print(filepaths)
-
-            await self.es_client.index(index=TORRENT_INDEX,
-                                       id=infohash,
-                                       body={
-                                           "infohash": infohash,
-                                           "metadata": metadata,
-                                           "metainfo": metainfo
-                                       })
-
     async def save_db(self, infohash, metadata, metainfo):
         if metainfo not in [False, None]:
-            sanitized_name = metainfo[b"name"].decode().replace('\n', '|')
+            sanitized_name = metainfo["name"].decode().replace('\n', '|')
             print(f'{infohash} {sanitized_name}')
-            if metainfo.get(b'files'):
-                filepaths = [(b'/'.join(x.get(b'path.utf-8') or x.get(b'path'))).decode() for x in metainfo[b'files']]
+            if metainfo.get('files'):
+                filepaths = [('/'.join(x.get('path.utf-8') or x.get('path'))).decode() for x in metainfo['files']]
                 print(filepaths)
 
-            await pg.save(infohash, metadata, metainfo)
+            await self.db_client.save_torrent(infohash, metadata, metainfo)
 
 
 if __name__ == '__main__':
