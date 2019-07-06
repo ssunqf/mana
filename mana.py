@@ -1,11 +1,13 @@
 import mala, maga
 import sys
 
+import base64
+
 import asyncio
 import aioredis
-import aiohttp
-import itertools
-import aiopg
+
+import pg
+
 from elasticsearch_async import AsyncElasticsearch
 
 from better_bencode import dumps as bencode, loads as bdecode
@@ -23,7 +25,18 @@ TORRENT_INDEX = 'torrent'
 INFOHASH_FOUND = 'INFOHASH_FOUND'
 INFOHASH_LAST_STAMP = 'INFOHASH_LAST_STAMP'
 
-f = open("ih.save", 'a')
+
+
+
+async def save_db(queue: asyncio.Queue):
+    dsn = 'dbname=torrent user=test password=passwd host=127.0.0.1'
+    async with aiopg.create_pool(dsn) as pool:
+        infohash, metadata, metainfo = await queue.get()
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                cursor.update('')
+
+
 
 
 class Crawler(maga.Maga):
@@ -38,7 +51,23 @@ class Crawler(maga.Maga):
 
         self.es_client = AsyncElasticsearch(hosts=['localhost'])
 
-        self.es_client.indices.create(index=TORRENT_INDEX, ignore=400)
+        mapping = '''
+            {  
+              "mappings": { 
+                "properties": {
+                  "infohash": {
+                    "type": "text"
+                  },
+                  "metadata": {
+                    "type": "binary"
+                  },
+                  "metainfo":{
+                    "type": "nested"
+                  }
+                }
+              }
+            }'''
+        self.es_client.indices.create(index=TORRENT_INDEX, body=mapping, ignore=400)
 
         self.get_peer_count = 0
         self.announce_peer_count = 0
@@ -65,10 +94,10 @@ class Crawler(maga.Maga):
                 try:
                     self.try_metainfo_count += 1
                     metadata = await mala.get_metadata(infohash, peer_addr[0], peer_addr[1], self.loop)
-                    metainfo = bencode(metadata)
-                    if metainfo:
+                    if metadata:
+                        metainfo = bdecode(metadata)
                         self.success_metainfo_count += 1
-                        await self.save_es(metainfo, infohash, peer_addr, reason)
+                        await self.save_db(infohash, metadata, metainfo)
                         await self.redis_client.sadd(INFOHASH_FOUND, ih_bytes)
                         await self.redis_client.hdel(INFOHASH_LAST_STAMP, ih_bytes)
                     else:
@@ -88,20 +117,6 @@ class Crawler(maga.Maga):
 
             print(f'fetch metainfo success ratio = {self.success_metainfo_count / self.try_metainfo_count}')
 
-    async def save(self, metainfo, infohash, peer_addr, reason):
-        if metainfo not in [False, None]:
-            try:
-                sanitized_name = metainfo[b"name"].decode().replace('\n', '|')
-                out = f'{infohash} {sanitized_name}\n'
-                sys.stdout.write(f'{peer_addr} {reason} {out}')
-                if metainfo.get(b'files'):
-                    filepaths = [(b'/'.join(x.get(b'path.utf-8') or x.get(b'path'))).decode() for x in metainfo[b'files']]
-                    print(filepaths)
-                f.write(out)
-                f.flush()
-            except UnicodeDecodeError:
-                print(infohash+'    (not rendered)')
-
     async def save_es(self, infohash, metadata, metainfo):
         if metainfo not in [False, None]:
             sanitized_name = metainfo[b"name"].decode().replace('\n', '|')
@@ -112,7 +127,21 @@ class Crawler(maga.Maga):
 
             await self.es_client.index(index=TORRENT_INDEX,
                                        id=infohash,
-                                       body={"metadata": metadata, "metainfo": metainfo})
+                                       body={
+                                           "infohash": infohash,
+                                           "metadata": metadata,
+                                           "metainfo": metainfo
+                                       })
+
+    async def save_db(self, infohash, metadata, metainfo):
+        if metainfo not in [False, None]:
+            sanitized_name = metainfo[b"name"].decode().replace('\n', '|')
+            print(f'{infohash} {sanitized_name}')
+            if metainfo.get(b'files'):
+                filepaths = [(b'/'.join(x.get(b'path.utf-8') or x.get(b'path'))).decode() for x in metainfo[b'files']]
+                print(filepaths)
+
+            await pg.save(infohash, metadata, metainfo)
 
 
 if __name__ == '__main__':

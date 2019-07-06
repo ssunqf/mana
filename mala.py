@@ -105,7 +105,6 @@ class WirePeerClient:
             return self.close()
 
         return metainfo
-        # return bdecode(metainfo)
 
     async def work(self):
         self.writer.write(BT_HEADER + self.infohash + self.peer_id)
