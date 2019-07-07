@@ -1,19 +1,38 @@
 #!/usr/bin/env python3.6
 # -*- coding: utf-8 -*-
+import re
+import os
 from pprint import pprint
 from better_bencode import loads as bdecode, dumps as bencode
+import mimetypes
 
-def torrent2json(metadata: bytes):
 
-    def to_json(node):
-        if isinstance(node, bytes):
-            return node.decode()
-        elif isinstance(node, list):
-            return [to_json(i) for i in node]
-        elif isinstance(node, dict):
-            return {to_json(k): to_json(v) for k, v in node.items() if k not in [b'pieces', b'piece length']}
+def metainfo2json(metadata: bytes):
+
+    def to_json(metainfo):
+        result = {}
+        result['name'] = metainfo[b'name'].decode()
+        if metainfo[b'files']:
+            files = []
+            for file in metainfo[b'files']:
+                path = ('/'.join(file.get(b'path.utf-8') or file.get(b'path'))).decode()
+                files.append({'path': path, 'length': file[b'length']})
+
+            result['files'] = files
         else:
-            return node
+            result['length'] = metainfo[b'length']
+
+        if b'publisher.utf-8' in metainfo:
+            result['publisher'] = metainfo[b'publisher.utf-8'].decode()
+        elif b'publisher' in metainfo:
+            result['publisher'] = metainfo[b'publisher'].decode()
+
+        if b'publisher-url.utf-8' in metainfo:
+            result['publisher-url'] = metainfo[b'publisher-url.utf-8'].decode()
+        elif b'publisher-url' in metainfo:
+            result['publisher-url'] = metainfo[b'publisher-url'].decode()
+
+        return result
 
     if metadata:
         metainfo = bdecode(metadata)
@@ -25,6 +44,6 @@ def torrent2json(metadata: bytes):
 if __name__ == '__main__':
     metadata = open('/Users/sunqf/Downloads/9B8E0D0C226B9482632A17B70FAF437A32DBC526.torrent', 'rb').read()
 
-    jsondata = torrent2json(metadata)
+    jsondata = metainfo2json(metadata)
 
     pprint(jsondata)

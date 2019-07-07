@@ -1,18 +1,14 @@
 import mala, maga
 import sys
 
-import base64
+import json
 
 import asyncio
 import aioredis
 
 import database
 
-from torrent import torrent2json
-
-from elasticsearch_async import AsyncElasticsearch
-
-from better_bencode import dumps as bencode, loads as bdecode
+from torrent import metainfo2json
 
 try:
     import uvloop
@@ -37,27 +33,7 @@ class Crawler(maga.Maga):
         self.redis_client = asyncio.get_event_loop().run_until_complete(
                 aioredis.create_redis_pool('redis://localhost'))
 
-        self.es_client = AsyncElasticsearch(hosts=['localhost'])
-
         self.db_client = database.Torrent(loop)
-
-        mapping = '''
-            {  
-              "mappings": { 
-                "properties": {
-                  "infohash": {
-                    "type": "text"
-                  },
-                  "metadata": {
-                    "type": "binary"
-                  },
-                  "metainfo":{
-                    "type": "nested"
-                  }
-                }
-              }
-            }'''
-        self.es_client.indices.create(index=TORRENT_INDEX, body=mapping, ignore=400)
 
         self.get_peer_count = 0
         self.announce_peer_count = 0
@@ -85,17 +61,17 @@ class Crawler(maga.Maga):
                     self.try_metainfo_count += 1
                     metadata = await mala.get_metadata(infohash, peer_addr[0], peer_addr[1], self.loop)
                     if metadata:
-                        metainfo = torrent2json(metadata)
                         self.success_metainfo_count += 1
-                        await self.save_db(infohash, metadata, metainfo)
+                        metainfo = metainfo2json(metadata)
+                        await self.db_client.save_torrent(infohash, metadata, json.dumps(metainfo, ensure_ascii=False))
                         await self.redis_client.sadd(INFOHASH_FOUND, ih_bytes)
                         await self.redis_client.hdel(INFOHASH_LAST_STAMP, ih_bytes)
                     else:
                         await self.redis_client.hset(INFOHASH_LAST_STAMP, ih_bytes, start_time)
-                except (ConnectionRefusedError, ConnectionResetError, asyncio.streams.IncompleteReadError, asyncio.TimeoutError, OSError) as e:
+                except (ConnectionRefusedError, ConnectionResetError,
+                        asyncio.streams.IncompleteReadError, asyncio.TimeoutError, OSError) as e:
                     if isinstance(e, OSError) and e.errno not in (101, 104, 111,113):
                         raise
-                    pass
                     await self.redis_client.hset(INFOHASH_LAST_STAMP, ih_bytes, start_time)
 
         duration = start_time - self.stat_time
@@ -107,21 +83,24 @@ class Crawler(maga.Maga):
 
             print(f'fetch metainfo success ratio = {self.success_metainfo_count / self.try_metainfo_count}')
 
-    async def save_db(self, infohash, metadata, metainfo):
-        if metainfo not in [False, None]:
-            sanitized_name = metainfo["name"].decode().replace('\n', '|')
+    async def log(self, infohash, metadata, metainfo):
+        if metadata not in [False, None]:
+            sanitized_name = metainfo["name"]
             print(f'{infohash} {sanitized_name}')
             if metainfo.get('files'):
-                filepaths = [('/'.join(x.get('path.utf-8') or x.get('path'))).decode() for x in metainfo['files']]
+                filepaths = [x['path'] for x in metainfo['files']]
                 print(filepaths)
-
-            await self.db_client.save_torrent(infohash, metadata, metainfo)
 
 
 if __name__ == '__main__':
 
     port = int(sys.argv[1])
     time.sleep(1)
-    crawler = Crawler()
-    crawler.run(port, False)
+
+    loop = asyncio.get_event_loop()
+    crawler = Crawler(loop)
+
+    loop.run_until_complete(crawler.run(port, False))
+
+
 

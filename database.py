@@ -4,6 +4,8 @@ import functools
 import asyncio
 from aiopg.sa import create_engine
 import sqlalchemy as sa
+import psycopg2
+import logging
 
 metadata = sa.MetaData()
 
@@ -23,6 +25,7 @@ class Torrent:
 
     async def create_table(self):
         async with self.engine.acquire() as conn:
+            await conn.execute('''DROP TABLE torrent''')
             await conn.execute('''CREATE TABLE torrent (
                 infohash varchar(40) PRIMARY KEY,
                 metadata bytea,
@@ -30,8 +33,11 @@ class Torrent:
 
     async def save_torrent(self, infohash, metadata, metainfo):
         async with self.engine.acquire() as conn:
-            await conn.execute(torrent_table.insert().values(
-                infohash=infohash, metadata=metadata, metainfo=metainfo))
+            try:
+                await conn.execute(torrent_table.insert().values(
+                    infohash=infohash, metadata=metadata, metainfo=metainfo))
+            except psycopg2.errors.UniqueViolation as e:
+                logging.warning(str(e))
 
     async def select_by_infohash(self, infohash):
         async with self.engine.acquire() as conn:

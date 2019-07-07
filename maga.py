@@ -46,7 +46,7 @@ BOOTSTRAP_NODES = [(gethostbyname(x), y) for (x,y) in BOOTSTRAP_NODES]
 
 
 class Maga(asyncio.DatagramProtocol):
-    def __init__(self, port, loop=None, bootstrap_nodes=BOOTSTRAP_NODES, interval=1):
+    def __init__(self, loop=None, bootstrap_nodes=BOOTSTRAP_NODES, interval=1):
         self.node_id = random_node_id()
         self.transport = None
         self.loop = loop or asyncio.get_event_loop()
@@ -66,7 +66,7 @@ class Maga(asyncio.DatagramProtocol):
             for node in self.bootstrap_nodes:
                 self.find_node(addr=node)
 
-    def run(self, port=6881, stop_loop = True):
+    async def run(self, port=6881, stop_loop = True):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind(('0.0.0.0', port))
@@ -82,11 +82,11 @@ class Maga(asyncio.DatagramProtocol):
                 # SIGINT and SIGTERM are not implemented on windows
                 pass
 
-        for node in self.bootstrap_nodes:
-            # Bootstrap
-            self.find_node(addr=node, node_id=self.node_id)
+        while self.running:
+            for node in self.bootstrap_nodes:
+                self.find_node(addr=node)
+            await asyncio.sleep(self.interval)
 
-        asyncio.ensure_future(self.auto_find_nodes(), loop=self.loop)
 
         try:
              self.loop.run_until_complete(asyncio.gather(*asyncio.Task.all_tasks()))
@@ -95,6 +95,7 @@ class Maga(asyncio.DatagramProtocol):
         if stop_loop == True:
              self.loop.stop()
              self.loop.close()
+
 
     def datagram_received(self, data, addr):
         try:
