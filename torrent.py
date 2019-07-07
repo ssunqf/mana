@@ -1,53 +1,58 @@
 #!/usr/bin/env python3.6
 # -*- coding: utf-8 -*-
-import re
-import os
-import chardet
 from pprint import pprint
-from better_bencode import loads as bdecode, dumps as bencode
-import mimetypes
+
+import chardet
+from better_bencode import loads as bdecode
 
 
 def to_str(bytes):
     encoding = chardet.detect(bytes)['encoding']
-    try:
-        return bytes.decode(encoding=encoding)
-    except:
-
+    if encoding:
+        return bytes.decode(encoding=encoding, errors='ignore')
+    else:
+        return bytes.decode(errors='ignore')
 
 
 def metainfo2json(metadata: bytes):
 
     def to_json(metainfo):
         result = {}
-        result['name'] = metainfo[b'name'].decode()
+        result['name'] = to_str(metainfo[b'name'])
         if b'files' in metainfo:
             files = []
             for file in metainfo[b'files']:
-                path = (b'/'.join(file.get(b'path.utf-8') or file.get(b'path')))
-                files.append({'path': to_str(path), 'length': file[b'length']})
+                if b'path.utf-8' in file:
+                    path = (b'/'.join(file[b'path.utf-8'])).decode()
+                else:
+                    path = to_str(b'/'.join(file[b'path.utf-8']))
+
+                files.append({'path': path, 'length': file[b'length']})
 
             result['files'] = files
         else:
             result['length'] = metainfo[b'length']
 
         if b'publisher.utf-8' in metainfo:
-            result['publisher'] = to_str(metainfo[b'publisher.utf-8'])
+            result['publisher'] = metainfo[b'publisher.utf-8'].decode()
         elif b'publisher' in metainfo:
             result['publisher'] = to_str(metainfo[b'publisher'])
 
         if b'publisher-url.utf-8' in metainfo:
-            result['publisher-url'] = to_str(metainfo[b'publisher-url.utf-8'])
+            result['publisher-url'] = metainfo[b'publisher-url.utf-8'].decode()
         elif b'publisher-url' in metainfo:
             result['publisher-url'] = to_str(metainfo[b'publisher-url'])
 
         return result
 
     if metadata:
-        metainfo = bdecode(metadata)
-        return to_json(metainfo)
+        try:
+            metainfo = bdecode(metadata)
+            return to_json(metainfo)
+        except:
+            return None
     else:
-        raise UnicodeDecodeError
+        return None
 
 
 if __name__ == '__main__':
