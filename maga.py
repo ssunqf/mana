@@ -51,7 +51,7 @@ class Maga(asyncio.DatagramProtocol):
         self.transport = None
         self.loop = loop or asyncio.get_event_loop()
         self.bootstrap_nodes = bootstrap_nodes
-        self.running = False
+        self.running = True
         self.interval = interval
 
     def stop(self):

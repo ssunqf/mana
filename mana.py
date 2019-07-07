@@ -3,6 +3,8 @@ import sys
 
 import json
 
+import logging
+
 import asyncio
 import aioredis
 
@@ -22,9 +24,10 @@ TORRENT_INDEX = 'torrent'
 
 INFOHASH_FOUND = 'INFOHASH_FOUND'
 INFOHASH_LAST_STAMP = 'INFOHASH_LAST_STAMP'
+PEER_STAT = 'PEER_STAT'
 
 class Crawler(maga.Maga):
-    def __init__(self, loop=None, active_tcp_limit = 500):
+    def __init__(self, loop=None, active_tcp_limit = 50):
         super().__init__(loop)
         self.seen_ct = 0
         self.active_tcp_limit = asyncio.Semaphore(active_tcp_limit)
@@ -55,19 +58,25 @@ class Crawler(maga.Maga):
         start_time = int(time.time()*1000)
         if self.running and start_time - last_stamp > 600:
             peer_addr = peer_addr or addr
-            print(f'{reason} {addr} {infohash}')
+            logging.debug(f'{reason} {addr} {infohash}')
             async with self.active_tcp_limit:
                 try:
                     self.try_metainfo_count += 1
                     metadata = await mala.get_metadata(infohash, peer_addr[0], peer_addr[1])
-                    if metadata:
+                    metainfo = metainfo2json(metadata)
+                    if metainfo:
                         self.success_metainfo_count += 1
-                        metainfo = metainfo2json(metadata)
-                        await self.db_client.save_torrent(infohash, metadata, json.dumps(metainfo, ensure_ascii=False))
+
+                        self.log(infohash, metadata, metainfo)
+                        await self.db_client.save_torrent(infohash,
+                                                          metadata,
+                                                          metainfo)
+
                         await self.redis_client.sadd(INFOHASH_FOUND, ih_bytes)
                         await self.redis_client.hdel(INFOHASH_LAST_STAMP, ih_bytes)
                     else:
                         await self.redis_client.hset(INFOHASH_LAST_STAMP, ih_bytes, start_time)
+
                 except (ConnectionRefusedError, ConnectionResetError,
                         asyncio.streams.IncompleteReadError, asyncio.TimeoutError, OSError) as e:
                     if isinstance(e, OSError) and e.errno not in (101, 104, 111,113):
@@ -76,20 +85,20 @@ class Crawler(maga.Maga):
 
         duration = start_time - self.stat_time
         if self.get_peer_count % 10000 == 0:
-            print(f'speed(per second): get_peer={self.get_peer_count * 1000 / duration}\t'
+            logging.info(f'speed(per second): get_peer={self.get_peer_count * 1000 / duration}\t'
                   f'announce_peer={self.announce_peer_count * 1000 / duration}\t'
                   f'try_metainfo={self.try_metainfo_count * 1000 / duration}\t'
                   f'success_metainfo={self.success_metainfo_count * 1000 / duration}\t')
 
-            print(f'fetch metainfo success ratio = {self.success_metainfo_count / self.try_metainfo_count}')
+            logging.info(f'fetch metainfo success ratio = {self.success_metainfo_count / self.try_metainfo_count}')
 
-    async def log(self, infohash, metadata, metainfo):
+    def log(self, infohash, metadata, metainfo):
         if metadata not in [False, None]:
             sanitized_name = metainfo["name"]
-            print(f'{infohash} {sanitized_name}')
+            logging.debug(f'{infohash} {sanitized_name}')
             if metainfo.get('files'):
                 filepaths = [x['path'] for x in metainfo['files']]
-                print(filepaths)
+                logging.debug(filepaths)
 
 
 if __name__ == '__main__':

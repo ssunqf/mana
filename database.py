@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.6
 # -*- coding: utf-8 -*-
-import functools
+import json
 import asyncio
 from aiopg.sa import create_engine
 import sqlalchemy as sa
@@ -35,7 +35,9 @@ class Torrent:
         async with self.engine.acquire() as conn:
             try:
                 await conn.execute(torrent_table.insert().values(
-                    infohash=infohash, metadata=metadata, metainfo=metainfo))
+                    infohash=infohash,
+                    metadata=metadata,
+                    metainfo=json.dumps(metainfo, ensure_ascii=False)))
             except psycopg2.errors.UniqueViolation as e:
                 logging.warning(str(e))
 

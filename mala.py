@@ -159,12 +159,24 @@ class WirePeerClient:
                 self.request_piece(self.pieces_received_num)
 
     async def __aenter__(self):
-        await self.connect()
+        await asyncio.wait_for(self.connect(), timeout=1)
+        return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
 
 async def get_metadata(infohash, ip, port):
-    async with WirePeerClient(ip, port, infohash) as client:
-        return await client.work()
+    try:
+        async with WirePeerClient(ip, port, infohash) as client:
+            return await client.work()
+    except:
+        return None
+
+
+if __name__ == '__main__':
+
+    result = asyncio.get_event_loop().run_until_complete(
+        get_metadata('61FEC722E593D30B51FD13F8F5F884C1937D6230', '207.180.210.81', '22989'))
+
+    print(result)

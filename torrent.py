@@ -10,7 +10,10 @@ import mimetypes
 
 def to_str(bytes):
     encoding = chardet.detect(bytes)['encoding']
-    return bytes.decode(encoding=encoding)
+    try:
+        return bytes.decode(encoding=encoding)
+    except:
+
 
 
 def metainfo2json(metadata: bytes):
@@ -44,7 +47,7 @@ def metainfo2json(metadata: bytes):
         metainfo = bdecode(metadata)
         return to_json(metainfo)
     else:
-        return None
+        raise UnicodeDecodeError
 
 
 if __name__ == '__main__':
