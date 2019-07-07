@@ -45,10 +45,14 @@ def get_metadata_size(data):
 
 
 class WirePeerClient:
-    def __init__(self, infohash):
+    def __init__(self, ip, port, infohash):
+        self.ip = ip
+        self.port = port
+
         if isinstance(infohash, str):
             infohash = binascii.unhexlify(infohash.upper())
         self.infohash = infohash
+
         self.peer_id = random_id()
 
         self.writer = None
@@ -61,13 +65,14 @@ class WirePeerClient:
         self.pieces_received_num = 0
         self.pieces = None
 
-    async def connect(self, ip, port, loop):
+    async def connect(self):
         self.reader, self.writer = await asyncio.open_connection(
-            ip, port, loop=loop
+            self.ip, self.port
         )
 
     def close(self):
         try:
+            self.reader.close()
             self.writer.close()
         except:
             pass
@@ -97,12 +102,12 @@ class WirePeerClient:
 
         if len(metainfo) != self.metadata_size:
             # Wrong size
-            return self.close()
+            return None
 
         infohash = hashlib.sha1(metainfo).hexdigest()
         if binascii.unhexlify(infohash.upper()) != self.infohash:
             # Wrong infohash
-            return self.close()
+            return None
 
         return metainfo
 
@@ -115,7 +120,7 @@ class WirePeerClient:
                     # Send EXT Handshake
                     self.write_message(EXT_HANDSHAKE_MESSAGE)
                 else:
-                    return self.close()
+                    return None
 
             total_message_length, msg_id = struct.unpack("!IB", await self.reader.readexactly(5))
             # Total message length contains message id length, remove it
@@ -131,7 +136,7 @@ class WirePeerClient:
                     self.ut_metadata = get_ut_metadata(extend_payload)
                     self.metadata_size = get_metadata_size(extend_payload)
                 except:
-                    return self.close()
+                    return None
                 self.pieces_num = math.ceil(self.metadata_size / BLOCK)
                 self.pieces = [False] * self.pieces_num
                 self.request_piece(0)
@@ -141,23 +146,25 @@ class WirePeerClient:
                 split_index = extend_payload.index(b"ee")+2
                 info = bdecode(extend_payload[:split_index])
                 if info[b'msg_type'] != MessageType.DATA:
-                    return self.close()
+                    return None
                 if info[b'piece'] != self.pieces_received_num:
-                    return self.close()
+                    return None
                 self.pieces[info[b'piece']] = extend_payload[split_index:]
             except:
-                return self.close()
+                return None
             self.pieces_received_num += 1
             if self.pieces_received_num == self.pieces_num:
                 return self.pieces_complete()
             else:
                 self.request_piece(self.pieces_received_num)
 
+    async def __aenter__(self):
+        await self.connect()
 
-async def get_metadata(infohash, ip, port, loop=None):
-    if not loop:
-        loop = asyncio.get_event_loop()
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
-    client = WirePeerClient(infohash)
-    await asyncio.wait_for(client.connect(ip, port, loop), timeout=1)
-    return await client.work()
+
+async def get_metadata(infohash, ip, port):
+    async with WirePeerClient(ip, port, infohash) as client:
+        return await client.work()

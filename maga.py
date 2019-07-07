@@ -70,10 +70,9 @@ class Maga(asyncio.DatagramProtocol):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind(('0.0.0.0', port))
-        coro = self.loop.create_datagram_endpoint(
+        transport, _ = await self.loop.create_datagram_endpoint(
                 lambda: self, sock=s
         )
-        transport, _ = self.loop.run_until_complete(coro)
 
         for signame in ('SIGINT', 'SIGTERM'):
             try:
@@ -86,15 +85,6 @@ class Maga(asyncio.DatagramProtocol):
             for node in self.bootstrap_nodes:
                 self.find_node(addr=node)
             await asyncio.sleep(self.interval)
-
-
-        try:
-             self.loop.run_until_complete(asyncio.gather(*asyncio.Task.all_tasks()))
-        except asyncio.CancelledError:
-             pass
-        if stop_loop == True:
-             self.loop.stop()
-             self.loop.close()
 
 
     def datagram_received(self, data, addr):

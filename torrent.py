@@ -2,9 +2,15 @@
 # -*- coding: utf-8 -*-
 import re
 import os
+import chardet
 from pprint import pprint
 from better_bencode import loads as bdecode, dumps as bencode
 import mimetypes
+
+
+def to_str(bytes):
+    encoding = chardet.detect(bytes)['encoding']
+    return bytes.decode(encoding=encoding)
 
 
 def metainfo2json(metadata: bytes):
@@ -12,25 +18,25 @@ def metainfo2json(metadata: bytes):
     def to_json(metainfo):
         result = {}
         result['name'] = metainfo[b'name'].decode()
-        if metainfo[b'files']:
+        if b'files' in metainfo:
             files = []
             for file in metainfo[b'files']:
-                path = ('/'.join(file.get(b'path.utf-8') or file.get(b'path'))).decode()
-                files.append({'path': path, 'length': file[b'length']})
+                path = (b'/'.join(file.get(b'path.utf-8') or file.get(b'path')))
+                files.append({'path': to_str(path), 'length': file[b'length']})
 
             result['files'] = files
         else:
             result['length'] = metainfo[b'length']
 
         if b'publisher.utf-8' in metainfo:
-            result['publisher'] = metainfo[b'publisher.utf-8'].decode()
+            result['publisher'] = to_str(metainfo[b'publisher.utf-8'])
         elif b'publisher' in metainfo:
-            result['publisher'] = metainfo[b'publisher'].decode()
+            result['publisher'] = to_str(metainfo[b'publisher'])
 
         if b'publisher-url.utf-8' in metainfo:
-            result['publisher-url'] = metainfo[b'publisher-url.utf-8'].decode()
+            result['publisher-url'] = to_str(metainfo[b'publisher-url.utf-8'])
         elif b'publisher-url' in metainfo:
-            result['publisher-url'] = metainfo[b'publisher-url'].decode()
+            result['publisher-url'] = to_str(metainfo[b'publisher-url'])
 
         return result
 

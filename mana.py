@@ -59,7 +59,7 @@ class Crawler(maga.Maga):
             async with self.active_tcp_limit:
                 try:
                     self.try_metainfo_count += 1
-                    metadata = await mala.get_metadata(infohash, peer_addr[0], peer_addr[1], self.loop)
+                    metadata = await mala.get_metadata(infohash, peer_addr[0], peer_addr[1])
                     if metadata:
                         self.success_metainfo_count += 1
                         metainfo = metainfo2json(metadata)
