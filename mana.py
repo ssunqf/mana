@@ -48,7 +48,7 @@ class Crawler(maga.Maga):
         self.get_peer_count += reason == 'get_peers'
         self.announce_peer_count += reason == 'announce_peer'
 
-        logging.warning(f'{reason} {addr} {infohash}')
+        logging.debug(f'{reason} {addr} {infohash}')
 
         assert reason in ['get_peers', 'announce_peer']
         if reason == 'get_peers' or peer_addr is None:
@@ -79,16 +79,18 @@ class Crawler(maga.Maga):
                 raise
 
         self.stat()
+        if self.get_peer_count == 50000:
+            self.running = False
 
     def stat(self):
         if (self.get_peer_count + 1) % 10000 == 0:
             duration = time.time() - self.start_time
-            logging.info(f'speed(per second): get_peer={self.get_peer_count / duration}\t'
+            logging.warning(f'speed(per second): get_peer={self.get_peer_count / duration}\t'
                   f'announce_peer={self.announce_peer_count / duration}\t'
                   f'try_metainfo={self.try_metainfo_count / duration}\t'
                   f'success_metainfo={self.success_metainfo_count / duration}\t')
 
-            logging.info(f'fetch metainfo success ratio = {self.success_metainfo_count / self.try_metainfo_count}')
+            logging.warning(f'fetch metainfo success ratio = {self.success_metainfo_count / self.try_metainfo_count}')
 
             self.get_peer_count = 0
             self.announce_peer_count = 0
@@ -116,7 +118,8 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     crawler = Crawler(loop)
 
-    loop.run_until_complete(crawler.run(port, False))
+    while True:
+        loop.run_until_complete(crawler.run(port, False))
 
 
 

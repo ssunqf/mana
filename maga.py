@@ -39,7 +39,8 @@ __version__ = '3.0.0'
 BOOTSTRAP_NODES = (
     ("router.bittorrent.com", 6881),
     ("dht.transmissionbt.com", 6881),
-    ("router.utorrent.com", 6881)
+    ("router.utorrent.com", 6881),
+    ("dht.aelitis.com", 6881),
 )
 
 BOOTSTRAP_NODES = [(gethostbyname(x), y) for (x,y) in BOOTSTRAP_NODES]
@@ -67,6 +68,7 @@ class Maga(asyncio.DatagramProtocol):
                 self.find_node(addr=node)
 
     async def run(self, port=6881, stop_loop = True):
+        self.running = True
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind(('0.0.0.0', port))
@@ -85,7 +87,6 @@ class Maga(asyncio.DatagramProtocol):
             for node in self.bootstrap_nodes:
                 self.find_node(addr=node)
             await asyncio.sleep(self.interval)
-
 
     def datagram_received(self, data, addr):
         try:
@@ -224,7 +225,7 @@ class Maga(asyncio.DatagramProtocol):
         }, addr)
 
     async def handle_get_peers(self, infohash, addr):
-        await self.handler(infohash, addr, None, 'get_peer')
+        await self.handler(infohash, addr, None, 'get_peers')
 
     async def handle_announce_peer(self, infohash, addr, peer_addr):
         await self.handler(infohash, addr, peer_addr, 'announce_peer')
