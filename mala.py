@@ -70,10 +70,10 @@ class WirePeerClient:
             self.ip, self.port
         )
 
-    def close(self):
+    async def close(self):
         try:
-            self.reader.close()
             self.writer.close()
+            await self.writer.wait_closed()
         except:
             pass
 
@@ -159,11 +159,11 @@ class WirePeerClient:
                 self.request_piece(self.pieces_received_num)
 
     async def __aenter__(self):
-        await asyncio.wait_for(self.connect(), timeout=1)
+        await asyncio.wait_for(self.connect(), timeout=5)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+        await self.close()
 
 
 async def get_metadata(infohash, ip, port):

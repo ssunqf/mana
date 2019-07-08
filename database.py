@@ -43,7 +43,11 @@ class Torrent:
 
     async def select_by_infohash(self, infohash):
         async with self.engine.acquire() as conn:
-            await conn.execute(torrent_table.select(infohash=infohash))
+            await conn.execute(torrent_table.select().where(infohash=infohash))
+
+    async def select_infohashs(self):
+        async with self.engine.acquire() as conn:
+            await conn.execute(torrent_table.select([sa.Column('infohash')]))
 
 
 if __name__ == '__main__':
