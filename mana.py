@@ -48,7 +48,7 @@ class Crawler(maga.Maga):
         self.get_peer_count += reason == 'get_peers'
         self.announce_peer_count += reason == 'announce_peer'
 
-        logging.debug(f'{reason} {addr} {infohash}')
+        logging.warning(f'{reason} {addr} {infohash}')
 
         assert reason in ['get_peers', 'announce_peer']
         if reason == 'get_peers' or peer_addr is None:

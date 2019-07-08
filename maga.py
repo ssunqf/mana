@@ -88,6 +88,8 @@ class Maga(asyncio.DatagramProtocol):
                 self.find_node(addr=node)
             await asyncio.sleep(self.interval)
 
+        transport.close()
+
     def datagram_received(self, data, addr):
         try:
             msg = better_bencode.loads(data)
