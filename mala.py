@@ -94,7 +94,7 @@ class WirePeerClient:
         self.writer.write(length + message)
 
     def request_piece(self, piece):
-        msg = bytes([EXT_ID, self.ut_metadata]) + bencode({b"msg_type": 0, b"piece": piece})
+        msg = bytes([EXT_ID, self.ut_metadata]) + bencode({b"msg_type": MessageType.REQUEST, b"piece": piece})
         self.write_message(msg)
 
     def pieces_complete(self):
@@ -102,33 +102,34 @@ class WirePeerClient:
 
         if len(metainfo) != self.metadata_size:
             # Wrong size
-            return None
+            return
 
         infohash = hashlib.sha1(metainfo).hexdigest()
         if binascii.unhexlify(infohash.upper()) != self.infohash:
             # Wrong infohash
-            return None
+            return
 
         return metainfo
 
     async def work(self):
         self.writer.write(BT_HEADER + self.infohash + self.peer_id)
-        while True:
-            if not self.handshaked:
-                if self.check_handshake(await self.reader.readexactly(68)):
-                    self.handshaked = True
-                    # Send EXT Handshake
-                    self.write_message(EXT_HANDSHAKE_MESSAGE)
-                else:
-                    return None
 
-            total_message_length, msg_id = struct.unpack("!IB", await self.reader.readexactly(5))
+        # handshake
+        if self.check_handshake(await self.reader.readexactly(68)):
+            # Send EXT Handshake
+            self.write_message(EXT_HANDSHAKE_MESSAGE)
+        else:
+            return
+
+        while True:
+            message_length, msg_id = struct.unpack("!IB", await self.reader.readexactly(5))
             # Total message length contains message id length, remove it
-            payload_length = total_message_length - 1
+            payload_length = message_length - 1
             payload = await self.reader.readexactly(payload_length)
 
             if msg_id != EXT_ID:
                 continue
+
             extended_id, extend_payload = payload[0], payload[1:]
             if extended_id == 0 and not self.ut_metadata:
                 # Extend handshake, receive ut_metadata and metadata_size
@@ -136,7 +137,7 @@ class WirePeerClient:
                     self.ut_metadata = get_ut_metadata(extend_payload)
                     self.metadata_size = get_metadata_size(extend_payload)
                 except:
-                    return None
+                    return
                 self.pieces_num = math.ceil(self.metadata_size / BLOCK)
                 self.pieces = [False] * self.pieces_num
                 self.request_piece(0)
@@ -146,17 +147,18 @@ class WirePeerClient:
                 split_index = extend_payload.index(b"ee")+2
                 info = bdecode(extend_payload[:split_index])
                 if info[b'msg_type'] != MessageType.DATA:
-                    return None
+                    return
                 if info[b'piece'] != self.pieces_received_num:
-                    return None
+                    return
                 self.pieces[info[b'piece']] = extend_payload[split_index:]
             except:
-                return None
+                return
             self.pieces_received_num += 1
-            if self.pieces_received_num == self.pieces_num:
-                return self.pieces_complete()
-            else:
+
+            if self.pieces_received_num < self.pieces_num:
                 self.request_piece(self.pieces_received_num)
+            else:
+                return self.pieces_complete()
 
     async def __aenter__(self):
         await asyncio.wait_for(self.connect(), timeout=5)
@@ -171,7 +173,7 @@ async def get_metadata(infohash, ip, port):
         async with WirePeerClient(ip, port, infohash) as client:
             return await client.work()
     except:
-        return None
+        return
 
 
 if __name__ == '__main__':

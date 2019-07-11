@@ -3,6 +3,7 @@ import logging
 import sys
 
 import aioredis
+import aiofiles
 
 import database
 import maga
@@ -41,9 +42,7 @@ class Crawler(maga.Maga):
         self.success_metainfo_count = 0
         self.start_time = time.time()
 
-
     async def handler(self, infohash, addr, peer_addr = None, reason = None):
-        ih_bytes = bytes.fromhex(infohash)
 
         self.get_peer_count += reason == 'get_peers'
         self.announce_peer_count += reason == 'announce_peer'
@@ -54,7 +53,7 @@ class Crawler(maga.Maga):
         if reason == 'get_peers' or peer_addr is None:
             return
 
-        if await self.redis_client.sismember(INFOHASH_FOUND, ih_bytes):
+        if await self.redis_client.sismember(INFOHASH_FOUND, infohash):
             return
 
         try:
@@ -71,7 +70,7 @@ class Crawler(maga.Maga):
                                                   metadata,
                                                   metainfo)
 
-                await self.redis_client.sadd(INFOHASH_FOUND, ih_bytes)
+                await self.redis_client.sadd(INFOHASH_FOUND, infohash)
 
         except (ConnectionRefusedError, ConnectionResetError,
                 asyncio.streams.IncompleteReadError, asyncio.TimeoutError, OSError) as e:
@@ -116,9 +115,9 @@ if __name__ == '__main__':
     logger.setLevel('INFO')
 
     loop = asyncio.get_event_loop()
-    crawler = Crawler(loop)
 
     while True:
+        crawler = Crawler(loop)
         loop.run_until_complete(crawler.run(port, False))
 
 

@@ -60,15 +60,7 @@ class Maga(asyncio.DatagramProtocol):
         for task in asyncio.Task.all_tasks():
             task.cancel()
 
-    async def auto_find_nodes(self):
-        self.running = True
-        while self.running:
-            await asyncio.sleep(self.interval)
-            for node in self.bootstrap_nodes:
-                self.find_node(addr=node)
-
-    async def run(self, port=6881, stop_loop = True):
-        self.running = True
+    async def run(self, port=6881):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind(('0.0.0.0', port))
