@@ -18,10 +18,10 @@ class Torrent:
     def __init__(self, loop=None):
         self.loop = loop if loop else asyncio.get_event_loop()
 
-        self.engine = self.loop.run_until_complete(create_engine(user='sunqf',
+        self.engine = self.loop.run_until_complete(create_engine(user='xxx',
                                  database='btsearch',
-                                 host='127.0.0.1',
-                                 password='840422'))
+                                 host='xxxx',
+                                 password='xxx'))
 
     async def create_table(self):
         async with self.engine.acquire() as conn:
@@ -47,13 +47,13 @@ class Torrent:
 
     async def select_infohashs(self):
         async with self.engine.acquire() as conn:
-            await conn.execute(torrent_table.select([sa.Column('infohash')]))
+            await conn.execute(torrent_table.select().column(torrent_table.infohash))
 
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     db = Torrent()
-    loop.run_until_complete(db.create_table())
+    print(loop.run_until_complete(db.select_infohashs())[0:10])
 
 
 
