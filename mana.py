@@ -38,6 +38,8 @@ class Crawler(maga.Maga):
 
         self.get_peer_count = 0
         self.announce_peer_count = 0
+        self.exist_count = 0
+        self.insert_count = 0
         self.try_metainfo_count = 0
         self.success_metainfo_count = 0
         self.start_time = time.time()
@@ -47,13 +49,14 @@ class Crawler(maga.Maga):
         self.get_peer_count += reason == 'get_peers'
         self.announce_peer_count += reason == 'announce_peer'
 
-        logging.warning(f'{reason} {addr} {infohash}')
+        logging.debug(f'{reason} {addr} {infohash}')
 
         assert reason in ['get_peers', 'announce_peer']
         if reason == 'get_peers' or peer_addr is None:
             return
 
         if await self.redis_client.sismember(INFOHASH_FOUND, infohash):
+            self.exist_count += 1
             return
 
         try:
@@ -67,6 +70,7 @@ class Crawler(maga.Maga):
                 self.log(infohash, metadata, metainfo)
 
                 await self.db_client.save_torrent([(infohash, metadata, metainfo)])
+                self.insert_count += 1
 
                 await self.redis_client.sadd(INFOHASH_FOUND, infohash)
 
@@ -76,14 +80,14 @@ class Crawler(maga.Maga):
                 raise
 
         self.stat()
-        if self.get_peer_count == 50000:
-            self.running = False
 
     def stat(self):
         if (self.get_peer_count + 1) % 10000 == 0:
             duration = time.time() - self.start_time
             logging.warning(f'speed(per second): get_peer={self.get_peer_count / duration}\t'
                   f'announce_peer={self.announce_peer_count / duration}\t'
+                  f'exist={self.exist_count / duration}\t'
+                  f'insert={self.insert_count / duration}\t'
                   f'try_metainfo={self.try_metainfo_count / duration}\t'
                   f'success_metainfo={self.success_metainfo_count / duration}\t')
 
