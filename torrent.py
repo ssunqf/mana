@@ -23,9 +23,11 @@ def metainfo2json(metadata: bytes):
             files = []
             for file in metainfo[b'files']:
                 if b'path.utf-8' in file:
-                    path = (b'/'.join(file[b'path.utf-8'])).decode()
+                    path = '/'.join(str(sub) if isinstance(sub, int) else sub.decode(encoding='utf-8')
+                                    for sub in file[b'path.utf-8'])
                 else:
-                    path = to_str(b'/'.join(file[b'path']))
+                    path = '/'.join(str(sub) if isinstance(sub, int) else to_str(sub)
+                                    for sub in file[b'path'])
 
                 files.append({'path': path, 'length': file[b'length']})
 

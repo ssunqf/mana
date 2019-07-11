@@ -95,6 +95,7 @@ class Maga(asyncio.DatagramProtocol):
                 b"y": b"e",
                 b"e": [202, b"Server Error"]
             }, addr=addr)
+            print(msg)
             raise e
 
     def handle_message(self, msg, addr):
