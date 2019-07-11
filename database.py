@@ -1,53 +1,40 @@
 #!/usr/bin/env python3.6
 # -*- coding: utf-8 -*-
-import json
 import asyncio
-from aiopg.sa import create_engine
-import sqlalchemy as sa
-import psycopg2
+import json
 import logging
+from typing import List, Tuple, Dict
 
-metadata = sa.MetaData()
+import asyncpg
 
-torrent_table = sa.Table('torrent', metadata,
-                         sa.Column('infohash', sa.String(40), primary_key=True),
-                         sa.Column('metadata', sa.LargeBinary()),
-                         sa.Column('metainfo', sa.JSON))
 
 class Torrent:
     def __init__(self, loop=None):
         self.loop = loop if loop else asyncio.get_event_loop()
 
-        self.engine = self.loop.run_until_complete(create_engine(user='xxx',
-                                 database='btsearch',
-                                 host='xxxx',
-                                 password='xxx'))
+        self.pool = self.loop.run_until_complete(
+            asyncpg.create_pool(database='postgres',
+                                host='localhost',
+                                user='sunqf',
+                                password='840422'))
 
     async def create_table(self):
-        async with self.engine.acquire() as conn:
-            await conn.execute('''DROP TABLE torrent''')
+        async with self.pool.acquire() as conn:
+            # await conn.execute('''DROP TABLE torrent''')
             await conn.execute('''CREATE TABLE torrent (
                 infohash varchar(40) PRIMARY KEY,
                 metadata bytea,
                 metainfo JSONB)''')
 
-    async def save_torrent(self, infohash, metadata, metainfo):
-        async with self.engine.acquire() as conn:
-            try:
-                await conn.execute(torrent_table.insert().values(
-                    infohash=infohash,
-                    metadata=metadata,
-                    metainfo=json.dumps(metainfo, ensure_ascii=False)))
-            except psycopg2.errors.UniqueViolation as e:
-                logging.warning(str(e))
-
-    async def select_by_infohash(self, infohash):
-        async with self.engine.acquire() as conn:
-            await conn.execute(torrent_table.select().where(infohash=infohash))
-
-    async def select_infohashs(self):
-        async with self.engine.acquire() as conn:
-            await conn.execute(torrent_table.select().column(torrent_table.infohash))
+    async def save_torrent(self, data: List[Tuple[str, bytes, Dict]]):
+        try:
+            async with self.pool.acquire() as conn:
+                async with conn.transaction():
+                    conn.executemany(
+                        '''INSERT INTO torrent(infohash, metadata, metainfo) VALUES ($1, $2, $3)''',
+                        data)
+        except Exception as e:
+            logging.warning(str(e))
 
 
 if __name__ == '__main__':
