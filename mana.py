@@ -66,9 +66,7 @@ class Crawler(maga.Maga):
             if metainfo:
                 self.log(infohash, metadata, metainfo)
 
-                await self.db_client.save_torrent(infohash,
-                                                  metadata,
-                                                  metainfo)
+                await self.db_client.save_torrent([(infohash, metadata, metainfo)])
 
                 await self.redis_client.sadd(INFOHASH_FOUND, infohash)
 
@@ -118,7 +116,7 @@ if __name__ == '__main__':
 
     while True:
         crawler = Crawler(loop)
-        loop.run_until_complete(crawler.run(port, False))
+        loop.run_until_complete(crawler.run(port))
 
 
 

@@ -60,7 +60,6 @@ class WirePeerClient:
 
         self.ut_metadata = 0
         self.metadata_size = 0
-        self.handshaked = False
         self.pieces_num = 0
         self.pieces_received_num = 0
         self.pieces = None
@@ -112,9 +111,8 @@ class WirePeerClient:
         return metainfo
 
     async def work(self):
-        self.writer.write(BT_HEADER + self.infohash + self.peer_id)
-
         # handshake
+        self.writer.write(BT_HEADER + self.infohash + self.peer_id)
         if self.check_handshake(await self.reader.readexactly(68)):
             # Send EXT Handshake
             self.write_message(EXT_HANDSHAKE_MESSAGE)
@@ -125,6 +123,9 @@ class WirePeerClient:
             message_length, msg_id = struct.unpack("!IB", await self.reader.readexactly(5))
             # Total message length contains message id length, remove it
             payload_length = message_length - 1
+            if payload_length == 0:
+                return
+
             payload = await self.reader.readexactly(payload_length)
 
             if msg_id != EXT_ID:
@@ -179,6 +180,6 @@ async def get_metadata(infohash, ip, port):
 if __name__ == '__main__':
 
     result = asyncio.get_event_loop().run_until_complete(
-        get_metadata('61FEC722E593D30B51FD13F8F5F884C1937D6230', '207.180.210.81', '22989'))
+        get_metadata('dcedfcebeab6588c66320f2e372859bf36393c88', '125.238.1.114', '34850'))
 
     print(result)
