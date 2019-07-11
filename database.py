@@ -13,7 +13,7 @@ class Torrent:
         self.loop = loop if loop else asyncio.get_event_loop()
 
         self.pool = self.loop.run_until_complete(
-            asyncpg.create_pool(database='postgres',
+            asyncpg.create_pool(database='btsearch',
                                 host='localhost',
                                 user='sunqf',
                                 password='840422'))
@@ -30,11 +30,17 @@ class Torrent:
         try:
             async with self.pool.acquire() as conn:
                 async with conn.transaction():
-                    conn.executemany(
-                        '''INSERT INTO torrent(infohash, metadata, metainfo) VALUES ($1, $2, $3)''',
-                        data)
+                    await conn.executemany(
+                        '''INSERT INTO torrent (infohash, metadata, metainfo) VALUES ($1, $2, $3)''',
+                        [(infohash, metadata, json.dumps(metainfo, ensure_ascii=False))
+                         for infohash, metadata, metainfo in data])
         except Exception as e:
             logging.warning(str(e))
+
+    async def get_all(self):
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                return [row['infohash'] for row in await conn.fetch('''SELECT infohash FROM torrent''')]
 
 
 if __name__ == '__main__':

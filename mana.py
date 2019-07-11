@@ -39,10 +39,15 @@ class Crawler(maga.Maga):
         self.get_peer_count = 0
         self.announce_peer_count = 0
         self.exist_count = 0
+        self.try_insert_count = 0
         self.insert_count = 0
         self.try_metainfo_count = 0
         self.success_metainfo_count = 0
         self.start_time = time.time()
+
+    async def warmup(self):
+        infohashs = await self.db_client.get_all()
+        await self.redis_client.sadd(INFOHASH_FOUND, infohashs)
 
     async def handler(self, infohash, addr, peer_addr = None, reason = None):
 
@@ -69,6 +74,7 @@ class Crawler(maga.Maga):
             if metainfo:
                 self.log(infohash, metadata, metainfo)
 
+                self.try_insert_count += 1
                 await self.db_client.save_torrent([(infohash, metadata, metainfo)])
                 self.insert_count += 1
 
@@ -76,6 +82,7 @@ class Crawler(maga.Maga):
 
         except (ConnectionRefusedError, ConnectionResetError,
                 asyncio.streams.IncompleteReadError, asyncio.TimeoutError, OSError) as e:
+            logging.warning(e)
             if isinstance(e, OSError) and e.errno not in (101, 104, 111,113):
                 raise
 
@@ -87,6 +94,7 @@ class Crawler(maga.Maga):
             logging.warning(f'speed(per second): get_peer={self.get_peer_count / duration}\t'
                   f'announce_peer={self.announce_peer_count / duration}\t'
                   f'exist={self.exist_count / duration}\t'
+                  f'try_insert={self.try_insert_count / duration}\t'
                   f'insert={self.insert_count / duration}\t'
                   f'try_metainfo={self.try_metainfo_count / duration}\t'
                   f'success_metainfo={self.success_metainfo_count / duration}\t')
@@ -95,6 +103,9 @@ class Crawler(maga.Maga):
 
             self.get_peer_count = 0
             self.announce_peer_count = 0
+            self.exist_count = 0
+            self.try_insert_count = 0
+            self.insert_count = 0
             self.try_metainfo_count = 0
             self.success_metainfo_count = 0
             self.start_time = time.time()
@@ -118,9 +129,9 @@ if __name__ == '__main__':
 
     loop = asyncio.get_event_loop()
 
-    while True:
-        crawler = Crawler(loop)
-        loop.run_until_complete(crawler.run(port))
+    crawler = Crawler(loop)
+    loop.run_until_complete(crawler.warmup())
+    loop.run_until_complete(crawler.run(port))
 
 
 
