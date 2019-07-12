@@ -10,6 +10,15 @@ from struct import unpack
 import better_bencode
 import random
 
+
+class ServerError(Exception):
+    pass
+
+
+class ProtocolError(Exception):
+    pass
+
+
 def proper_infohash(infohash):
     if isinstance(infohash, bytes):
         # Convert bytes to hex
@@ -83,20 +92,31 @@ class Maga(asyncio.DatagramProtocol):
         transport.close()
 
     def datagram_received(self, data, addr):
+
         try:
             msg = better_bencode.loads(data)
-        except:
+        except (better_bencode.BencodeTypeError, better_bencode.BencodeValueError):
             return
+
+        if not isinstance(msg, dict):
+            return
+
         try:
             self.handle_message(msg, addr)
+        except ProtocolError:
+            self.send_message(
+                data={
+                    b"t": msg[b"t"],
+                    b"y": b"e",
+                    b"e": [203, b"Protocal Error"]
+                },
+                addr=addr)
         except Exception as e:
             self.send_message(data={
                 b"t": msg[b"t"],
                 b"y": b"e",
                 b"e": [202, b"Server Error"]
             }, addr=addr)
-            print(msg)
-            raise e
 
     def handle_message(self, msg, addr):
         msg_type = msg.get(b"y", b"e")
@@ -105,6 +125,8 @@ class Maga(asyncio.DatagramProtocol):
             return
 
         if msg_type == b"r":
+            if b"r" not in msg_type:
+                raise ProtocolError
             return self.handle_response(msg, addr=addr)
 
         if msg_type == b'q':
