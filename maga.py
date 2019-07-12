@@ -95,7 +95,7 @@ class Maga(asyncio.DatagramProtocol):
 
         try:
             msg = better_bencode.loads(data)
-        except (better_bencode.BencodeTypeError, better_bencode.BencodeValueError):
+        except: # (better_bencode.BencodeTypeError, better_bencode.BencodeValueError):
             return
 
         if not isinstance(msg, dict):

@@ -172,7 +172,7 @@ class WirePeerClient:
 async def get_metadata(infohash, ip, port):
     try:
         async with WirePeerClient(ip, port, infohash) as client:
-            return await asyncio.wait_for(client.work(), timeout=5)
+            return await asyncio.wait_for(client.work(), timeout=10)
     except:
         return
 
