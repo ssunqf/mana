@@ -47,7 +47,7 @@ class Crawler(maga.Maga):
 
     async def warmup(self):
         for infohash in tqdm(await self.db_client.get_all(), desc='warmup cache'):
-            await self.redis_client.sadd(INFOHASH_FOUND, infohash)
+            await self.redis_client.sadd(INFOHASH_FOUND, bytes.fromhex(infohash))
 
     async def handler(self, infohash, addr, peer_addr = None, reason = None):
 
@@ -60,7 +60,7 @@ class Crawler(maga.Maga):
         if reason == 'get_peers' or peer_addr is None:
             return
 
-        if await self.redis_client.sismember(INFOHASH_FOUND, infohash):
+        if await self.redis_client.sismember(INFOHASH_FOUND, bytes.fromhex(infohash)):
             self.exist_count += 1
             return
 
@@ -74,10 +74,10 @@ class Crawler(maga.Maga):
             if metainfo:
                 self.log(infohash, metadata, metainfo)
 
-                await self.db_client.save_torrent([(infohash, metadata, metainfo)])
+                await self.db_client.save_torrent([(infohash, metainfo)])
                 self.insert_count += 1
 
-                await self.redis_client.sadd(INFOHASH_FOUND, infohash)
+                await self.redis_client.sadd(INFOHASH_FOUND, bytes.fromhex(infohash))
 
         except (ConnectionRefusedError, ConnectionResetError,
                 asyncio.streams.IncompleteReadError, asyncio.TimeoutError, OSError) as e:

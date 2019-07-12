@@ -23,17 +23,16 @@ class Torrent:
             # await conn.execute('''DROP TABLE torrent''')
             await conn.execute('''CREATE TABLE torrent (
                 infohash varchar(40) PRIMARY KEY,
-                metadata bytea,
                 metainfo JSONB)''')
 
-    async def save_torrent(self, data: List[Tuple[str, bytes, Dict]]):
+    async def save_torrent(self, data: List[Tuple[str, Dict]]):
         try:
             async with self.pool.acquire() as conn:
                 async with conn.transaction():
                     await conn.executemany(
-                        '''INSERT INTO torrent (infohash, metadata, metainfo) VALUES ($1, $2, $3)''',
-                        [(infohash, metadata, json.dumps(metainfo, ensure_ascii=False))
-                         for infohash, metadata, metainfo in data])
+                        '''INSERT INTO torrent (infohash, metainfo) VALUES ($1, $2)''',
+                        [(infohash, json.dumps(metainfo, ensure_ascii=False))
+                         for infohash, metainfo in data])
         except Exception as e:
             logging.warning(str(e))
 
