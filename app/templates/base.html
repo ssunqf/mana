@@ -1,0 +1,35 @@
+{% from 'bootstrap/nav.html' import render_nav_item %}
+{% from 'bootstrap/form.html' import render_form, render_field, render_form_row %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>magnet search</title>
+    <link href="{{ url_for('static/tree.css') }}" rel="stylesheet" type="text/css">
+    {{ bootstrap.load_css() }}
+</head>
+<body>
+<main class="container">
+    <div class="jumbotron text-center">
+        <h1>Magnet search</h1>
+        <h1>磁力搜索</h1>
+    </div>
+    <div class="d-flex justify-content-center">
+        {{ render_form(form, form_type="inline") }}
+    </div>
+
+    {% block content %} {% endblock %}
+    <footer class="text-center">
+        {% block footer %}
+            <small> &copy; 2019 <a>sunqf</a>
+            </small>
+        {% endblock %}
+    </footer>
+</main>
+
+{{ bootstrap.load_js() }}
+{% block script %} {% endblock %}
+</body>
+</html>
