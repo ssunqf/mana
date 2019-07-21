@@ -55,7 +55,7 @@ BOOTSTRAP_NODES = (
 BOOTSTRAP_NODES = [(gethostbyname(x), y) for (x,y) in BOOTSTRAP_NODES]
 
 
-class Maga(asyncio.DatagramProtocol):
+class DHT(asyncio.DatagramProtocol):
     def __init__(self, loop=None, bootstrap_nodes=BOOTSTRAP_NODES, interval=1):
         self.node_id = random_node_id()
         self.transport = None

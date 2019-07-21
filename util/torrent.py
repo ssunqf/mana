@@ -21,6 +21,7 @@ def metainfo2json(metadata: bytes):
         result['name'] = to_str(metainfo[b'name'])
         if b'files' in metainfo:
             files = []
+            length = 0
             for file in metainfo[b'files']:
                 if b'path.utf-8' in file:
                     path = '/'.join(str(sub) if isinstance(sub, int) else sub.decode(encoding='utf-8')
@@ -30,8 +31,10 @@ def metainfo2json(metadata: bytes):
                                     for sub in file[b'path'])
 
                 files.append({'path': path, 'length': file[b'length']})
+                length += file[b'length']
 
             result['files'] = files
+            result['length'] = length
         else:
             result['length'] = metainfo[b'length']
 
@@ -57,6 +60,7 @@ def metainfo2json(metadata: bytes):
             return None
     else:
         return None
+
 
 if __name__ == '__main__':
     # with open('test.metadata', 'rb') as input:

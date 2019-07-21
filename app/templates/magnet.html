@@ -1,10 +1,27 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Title</title>
-</head>
-<body>
+{% extends 'base.html' %}
 
-</body>
-</html>
+{% block content %}
+  {% if data is none %}
+    <div>
+      <p>infohash不存在</p>
+    </div>
+  {% else %}
+    <div>
+      <p>magnet::tid</p>
+      <div>
+        <p>{{ data['metainfo']['name'] }}</p>
+        <p>{{ data }}</p>
+        <p>{{ data['metainfo'] }}</p>
+        {% if "files" in data['metainfo'] %}
+
+          {% for file in data['metainfo']['files'] %}
+            {{ file['path'] }}
+          {% endfor %}
+
+        {% endif %}
+      </div>
+      <div> {{ data.get('seeder', 1) }} </div>
+        <div> {{ data.get('leeder', 1) }} </div>
+    </div>
+  {% endif %}
+{% endblock %}

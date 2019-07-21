@@ -3,13 +3,11 @@ import logging
 import sys
 
 import aioredis
-import aiofiles
 from tqdm import tqdm
 
-import database
-import maga
-import mala
-from torrent import metainfo2json
+from util import database
+from crawler import dht, peer
+from util.torrent import metainfo2json
 
 try:
     import uvloop
@@ -26,7 +24,7 @@ INFOHASH_LAST_STAMP = 'INFOHASH_LAST_STAMP'
 PEER_STAT = 'PEER_STAT'
 
 
-class Crawler(maga.Maga):
+class Crawler(dht.DHT):
     def __init__(self, loop=None, active_tcp_limit = 500):
         super().__init__(loop)
         self.active_tcp_limit = asyncio.Semaphore(active_tcp_limit)
@@ -67,7 +65,7 @@ class Crawler(maga.Maga):
         try:
             async with self.active_tcp_limit:
                 self.try_metainfo_count += 1
-                metadata = await mala.get_metadata(infohash, peer_addr[0], peer_addr[1])
+                metadata = await peer.get_metadata(infohash, peer_addr[0], peer_addr[1])
                 self.success_metainfo_count += (metadata is not None)
 
             metainfo = metainfo2json(metadata)

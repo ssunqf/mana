@@ -1,7 +1,14 @@
 {% extends 'base.html' %}
 
 {% block content %}
-  <div class="table-responsive-sm">
+  <div class="jumbotron text-center">
+    <h1>Magnet search</h1>
+  </div>
+  <div class="d-flex justify-content-center">
+    {{ render_form(form, form_type="inline") }}
+  </div>
+
+  <div class="d-flex justify-content-center">
     <table class="table-hover">
       <thead><td>类型</td><td>标题</td><td>种子数</td><td>下载数</td></thead>
       <tbody>
@@ -12,7 +19,6 @@
               <ul id="myUI">
                 {% if "files" in result['metainfo'] %}
                 <li><span class="caret">{{ result['metainfo']['name'] }}</span>
-
                     <ul class="nested">
                       {% for file in result['metainfo']['files'] %}
                          <li>{{file['path']}}</li>
@@ -35,15 +41,15 @@
 {% endblock %}
 
 {% block script %}
-<script>
-  var toggler = document.getElementsByClassName("caret");
-  var i;
+  <script>
+    var toggler = document.getElementsByClassName("caret");
+    var i;
 
-  for (i = 0; i < toggler.length; i++) {
-    toggler[i].addEventListener("click", function() {
-      this.parentElement.querySelector(".nested").classList.toggle("active");
-      this.classList.toggle("caret-down");
-    });
-  }
-</script>
+    for (i = 0; i < toggler.length; i++) {
+      toggler[i].addEventListener("click", function() {
+        this.parentElement.querySelector(".nested").classList.toggle("active");
+        this.classList.toggle("caret-down");
+      });
+    }
+  </script>
 {% endblock %}
