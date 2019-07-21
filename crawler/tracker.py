@@ -172,7 +172,7 @@ async def warmup():
         await redis_client.sadd(INFOHASH_FOUND, bytes.fromhex(infohash))
 
 
-async def fetch_stats():
+async def fetch_stats(batch_size=1000):
     no_exists = {}
     successed = []
     for name, tracker_url, download_url in tracker_scrape_urls:
@@ -195,7 +195,9 @@ async def fetch_stats():
             print(name, tracker_url, download_url)
 
     print('not exist ', len(no_exists))
-    await download_metadata([infohash for infohash, _ in sorted(no_exists, key=lambda i:i[1], reverse=True)])
+    infohashs = [infohash for infohash, _ in sorted(no_exists.items(), key=lambda i:i[1], reverse=True)]
+    for offset in range(0, len(infohashs), batch_size):
+        await download_metadata(infohashs[offset:offset+batch_size])
 
     # merge
     prev = [(open(n), None) for n in successed]
