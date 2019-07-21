@@ -184,11 +184,12 @@ async def fetch_stats(batch_size=1000):
 
             with open(os.path.join(torrent_dir, name), 'rt') as output:
                 for infohash, infos in decode_tracker_scrape(scrape_file):
+                    infohash = infohash.upper()
                     if not await redis_client.sismember(INFOHASH_FOUND, bytes.fromhex(infohash)):
-                        no_exists[infohash.upper()] = infos['complete'] + infos['downloaded'] + infos['incomplete']
+                        no_exists[infohash] = infos['complete'] + infos['downloaded'] + infos['incomplete']
 
                     output.write(f'%s\t%d\t%d\t%d\n' % (
-                        infohash.upper(), infos['complete'], infos['downloaded'], infos['incomplete']))
+                        infohash, infos['complete'], infos['downloaded'], infos['incomplete']))
 
             successed.append(os.path.join(torrent_dir, name))
         except Exception as e:
