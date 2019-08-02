@@ -120,9 +120,8 @@ INFOHASH_FOUND = 'INFOHASH_FOUND'
 torrent_dir = './torrents'
 os.makedirs(torrent_dir, exist_ok=True)
 
-best_trackers = 'https://github.com/ngosang/trackerslist/raw/master/trackers_best.txt'
+best_trackers = 'https://github.com/ngosang/trackerslist/raw/master/trackers_best_ip.txt'
 
-request.urlretrieve(best_trackers, '/tmp/trackers_best.txt')
 tmp_tracker_file = download(best_trackers, '/tmp/trackers_best.txt')
 
 with open(tmp_tracker_file) as input:
@@ -135,17 +134,25 @@ async def download_metadata(infohashs):
     tmp_magnet = os.path.join(torrent_dir, 'magnet.tmp')
     with open(tmp_magnet, 'wt') as input:
         for infohash in infohashs:
-            input.write('magnet:?xt=urn:btih:{}{}\n'.format(
-                infohash, ''.join(tracker_best_urls)))
+            input.write('magnet:?xt=urn:btih:{}\n'.format(
+                infohash
+                # ''.join(tracker_best_urls)
+            ))
 
     p = subprocess.Popen(['aria2c',
                           '-d', torrent_dir,
                           '-i', tmp_magnet,
                           '--bt-metadata-only=true',
                           '--bt-save-metadata=true',
+                          '--follow-torrent=false',
+                          '--seed-time=0',
                           '--bt-stop-timeout=600',
                           '--max-concurrent-downloads=500',
-                          '--max-connection-per-server=20',
+                          '--max-connection-per-server=16',
+                          '--bt-tracker', ','.join(urls),
+                          '--enable-dht=true',
+                          # '--bt-enable-lpd=true',
+                          # '--enable-peer-exchange=true'
                           ])
     try:
         p.wait()
@@ -153,7 +160,7 @@ async def download_metadata(infohashs):
         p.kill()
 
     for infohash in infohashs:
-        path = os.path.join(torrent_dir, infohash + '.torrent')
+        path = os.path.join(torrent_dir, infohash.lower() + '.torrent')
         if os.path.exists(path):
             try:
                 with open(path, 'rb') as input:
@@ -182,17 +189,19 @@ async def fetch_stats(batch_size=1000):
             if not scrape_file:
                 continue
 
-            with open(os.path.join(torrent_dir, name), 'rt') as output:
+            with open(os.path.join(torrent_dir, name), 'wt') as output:
                 for infohash, infos in decode_tracker_scrape(scrape_file):
                     infohash = infohash.upper()
                     if not await redis_client.sismember(INFOHASH_FOUND, bytes.fromhex(infohash)):
-                        no_exists[infohash] = infos['complete'] + infos['downloaded'] + infos['incomplete']
+                        no_exists[infohash] = max(infos['complete'] + infos['incomplete'],
+                                                  no_exists.get(infohash, 0))
 
                     output.write(f'%s\t%d\t%d\t%d\n' % (
                         infohash, infos['complete'], infos['downloaded'], infos['incomplete']))
 
             successed.append(os.path.join(torrent_dir, name))
         except Exception as e:
+            print(e)
             print(name, tracker_url, download_url)
 
     print('not exist ', len(no_exists))
@@ -218,7 +227,7 @@ async def fetch_stats(batch_size=1000):
         if len(curr) == 0:
             break
 
-        small = min(curr, key=lambda i:i[1][0])
+        small = min(curr, key=lambda i:i[1][0])[1]
 
         prev = []
         for fp, item in curr:

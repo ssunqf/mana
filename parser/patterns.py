@@ -73,6 +73,8 @@ JAV_CODE_PREFIX = '|'.join([
     'zex', 'zizg', 'zuko'])
 
 jav_code_pattern = r'(?i)\b(((%s)[\-_. ]?([0-9]{3,6})(\w\b)?))' % (JAV_CODE_PREFIX)
+
+
 def normalize_jav_code(text: str):
     assert re.match(jav_code_pattern, text)
     return re.sub(jav_code_pattern, r'\3-\4\5', text).upper()
@@ -100,7 +102,7 @@ patterns = [
     ('cracked', bool, r'\b((cracked|Crack|keygen|破解版))\b', normalize_general),
     ('subtitle_group', str, r'\b((.{2, 4}字幕组))', normalize_general),
 
-    ('resolution', str, r'(?i)\D(m?([0-9]{3,4}[ip]|4K|[0-9]{2,4}[._\- ]?k(bps)?))\b', normalize_resolution),
+    ('resolution', list, r'(?i)\D(m?([0-9]{3,4}[ip]|4K|[0-9]{2,4}[._\- ]?k(bps)?))\b', normalize_resolution),
     ('quality',
      list,
      r'(?i)[^a-z](((PPV\.)?[HP]DTV|(HD)?CAM|B[DR]Rip|(HD-?)?TS|(PPV )?WEB-?DL((DVD)?Rip)?|HD(TV)?Rip|DVDRip|TVRip|CamRip|W[EB]BRip|Blu-?Ray|DvDScr|telesync))[^a-z]',
@@ -109,12 +111,12 @@ patterns = [
     ('codec', str, r'(?i)\b((xvid|[hx]\.?26[45]))', normalize_general),
     ('tag',  list, r'(?i)((无码|有码|骑兵|步兵|無碼))', normalize_general),
     ('person', list, r'(?i)((明日花绮罗))', normalize_general),
-    ('audio', str, r'(?i)\b((MP3|DD5\.?1|Dual[\- ]Audio|LiNE|DTS|AAC[.-]LC|AAC(\.?2\.0)?|AC3([\. ]5\.1)?))\b',
+    ('audio', str, r'(?i)\b((MP3|DD5\.?1|Dual[\- ]Audio|LiNE|DTS|AAC[.-]LC|AAC(\.?2\.0)?|AC3([\. ]5\.1)?([.-]EVO)?))\b',
      normalize_general),
     ('region', str, r'(?i)\b(R([0-9]))\b', normalize_general),
     ('size', list, r'(?i)((\d+(\.\d+)?(?:GB|MB)))\W', normalize_general),
     ('website', str, r'^(\[ ?([^\]]+?) ?\])', normalize_general),
-    ('url', str, r'(?i)\b((www\.\w+\.\w{2,4}|\w+\.(org|net|com|tv|io|ru|cz)))(?:[^a-z]|$)', normalize_general),
+    ('url', str, r'(?i)\b((www\.\w+\.\w{2,4}|\w+\.(org|net|com|tv|io|ru|cz)|ytz))(?:[^a-z]|$)', normalize_general),
     ('version', str, r'(?i)\b((((v(er(sion)?)?|r(ev(ision)?)?)[.\-_ ]?(\d+)([.\-_]\d+){0,3})))', normalize_general),
     ('version', str, r'(?i)\b((\d+(\.\d+)?[ ]?build[ ]?\d+))\b', normalize_general),
     ('language', list, r'(?i)\b((rus|ita|eng|chs|FRENCH))\b', normalize_general),

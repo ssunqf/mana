@@ -1,7 +1,9 @@
 import asyncio
 import binascii
-import os
+import sys
+from time import time
 import signal
+from collections import Counter
 
 import socket
 from socket import inet_ntoa, gethostbyname
@@ -64,6 +66,9 @@ class DHT(asyncio.DatagramProtocol):
         self.running = True
         self.interval = interval
 
+        self.receive_counter = Counter()
+        self.send_counter = Counter()
+
     def stop(self):
         self.running = False
         for task in asyncio.Task.all_tasks():
@@ -95,6 +100,9 @@ class DHT(asyncio.DatagramProtocol):
 
         try:
             msg = better_bencode.loads(data)
+
+            self.receive_counter[msg[b'y']] += len(data)
+
         except: # (better_bencode.BencodeTypeError, better_bencode.BencodeValueError):
             return
 
@@ -213,15 +221,12 @@ class DHT(asyncio.DatagramProtocol):
 
     def send_message(self, data, addr):
         data.setdefault(b"t", b"tt")
-        if b"q" in data.keys() and data[b"q"] == b"find_node":
-             self.transport.sendto(
-                 b"d1:ad2:id20:%s6:target20:%se1:q9:find_node1:t2:aa1:y1:qe" % (data[b"a"][b"id"], data[b"a"][b"target"]),
-                 addr)
-        else:
-             try:
-                  self.transport.sendto(better_bencode.dumps(data), addr)
-             except:
-                  print(data)
+        try:
+            msg = better_bencode.dumps(data)
+            self.transport.sendto(msg, addr)
+            self.send_counter[data[b'y']] += len(msg)
+        except:
+          print(data)
 
     def fake_node_id(self, node_id=None):
         if node_id:
@@ -232,7 +237,7 @@ class DHT(asyncio.DatagramProtocol):
         if not target:
             target = random_node_id()
         self.send_message({
-            b"t": b"fn",
+            b"t": b"aa",
             b"y": b"q",
             b"q": b"find_node",
             b"a": {
@@ -246,3 +251,35 @@ class DHT(asyncio.DatagramProtocol):
 
     async def handle_announce_peer(self, infohash, addr, peer_addr):
         await self.handler(infohash, addr, peer_addr, 'announce_peer')
+
+
+
+class FakeDHT(DHT):
+    def __init__(self):
+        super(FakeDHT, self).__init__()
+        self.get_peers_counter = 1
+        self.announce_peer_counter = 1
+        self.start_time = time()
+
+    async def handler(self, infohash, addr, peer_addr, reason):
+        if reason == 'get_peers':
+            self.get_peers_counter += 1
+        elif reason == 'announce_peer':
+            self.announce_peer_counter += 1
+
+        if self.get_peers_counter % 10000 == 0:
+            elsape = time() - self.start_time
+            print('receive')
+            print('\t'.join(['%s: %.3fb/s' % (k, v / elsape) for k, v in self.receive_counter.items()]))
+            print('send')
+            print('\t'.join(['%s: %.3fb/s' % (k, v / elsape) for k, v in self.send_counter.items()]))
+
+            self.send_counter = Counter()
+            self.receive_counter = Counter()
+            self.start_time = time()
+
+
+if __name__ == '__main__':
+
+    dht_server = FakeDHT()
+    asyncio.get_event_loop().run_until_complete(dht_server.run(sys.argv[1]))

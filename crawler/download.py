@@ -4,77 +4,120 @@ import os
 import sys
 import time
 from tqdm import tqdm
-import subprocess
-
 from typing import List
-from pprint import pprint
+import subprocess
+import asyncio
+import aioredis
+from urllib import request
+from urllib.parse import quote
+from util.database import db_client
+from util.torrent import metainfo2json
 
-import logging
+tracker_scrape_urls = [
+    # 'torrents_min' : 'magnet:?xt=urn:btih:B3BCB8BD8B20DEC7A30FD9EC43CE7AFAAF631E06',
+    (
+        'tracker.pirateparty.gr',
+        'udp://tracker.pirateparty.gr:6969/announce',
+        'http://tracker.pirateparty.gr/full_scrape.tar.gz'
+    ),
+    (
+        'tracker.leechers-paradise.org',
+        'udp://tracker.leechers-paradise.org:6969/announce',
+        'http://tracker.leechers-paradise.org/scrape.tar.gz'
+    ),
+    (
+        'coppersurfer.tk',
+        'udp://tracker.coppersurfer.tk:6969/announce',
+        'http://coppersurfer.tk/full_scrape_not_a_tracker.tar.gz'
+    ),
+    # 'thepiratebay.org' : 'https://thepiratebay.org/static/dump/csv/torrent_dump_full.csv.gz'
+]
 
-from pyaria2 import Aria2RPC
+
+def download(url, local_path):
+    p = subprocess.Popen(['wget', '-t', 'inf', url, '-O', local_path])
+    p.wait()
+    return local_path if os.path.exists(local_path) else None
 
 
-def fetch_metadata(aria_client, uris: List[str], output_dir):
-    gids = []
+loop = asyncio.get_event_loop()
+redis_client = loop.run_until_complete(
+    aioredis.create_redis_pool('redis://localhost'))
 
-    for uri in uris:
-        gid = aria_client.addUri([uri],
-            options={
-                'bt-metadata-only': 'true',
-                'bt-save-metadata': 'true',
-                'max-tries': '5',
-                'retry-wait': '10',
-                'dir': output_dir
-            })
+INFOHASH_FOUND = 'INFOHASH_FOUND'
 
-        gids.append(gid)
+torrent_dir = './torrents'
+os.makedirs(torrent_dir, exist_ok=True)
 
-    while len(gids) > 0:
-        left = []
-        for gid in gids:
+best_trackers = 'https://github.com/ngosang/trackerslist/raw/master/trackers_best.txt'
+
+request.urlretrieve(best_trackers, '/tmp/trackers_best.txt')
+tmp_tracker_file = download(best_trackers, '/tmp/trackers_best.txt')
+
+with open(tmp_tracker_file) as input:
+    urls = set([line.strip() for line in input.readlines() if len(line.strip()) > 0] + \
+           [url for _, url, _ in tracker_scrape_urls])
+    tracker_best_urls = ['&tr=' + quote(url.strip(), safe='') for url in urls]
+
+
+async def download_metadata(infohashs: List[str]):
+    tmp_magnet = os.path.join(torrent_dir, 'magnet.tmp')
+    with open(tmp_magnet, 'wt') as input:
+        for infohash in infohashs:
+            input.write('magnet:?xt=urn:btih:{}{}\n'.format(
+                infohash, ''.join(tracker_best_urls)))
+
+    p = subprocess.Popen(['aria2c',
+                          '-d', torrent_dir,
+                          '-i', tmp_magnet,
+                          '--bt-metadata-only=true',
+                          '--bt-save-metadata=true',
+                          '--bt-stop-timeout=600',
+                          '--max-concurrent-downloads=500',
+                          '--max-connection-per-server=8',
+                          ])
+    try:
+        p.wait()
+    except Exception as e:
+        print(e)
+    finally:
+        p.terminate()
+
+    for infohash in infohashs:
+        path = os.path.join(torrent_dir, infohash.lower() + '.torrent')
+        if os.path.exists(path):
             try:
-                response = aria_client.tellStatus(gid)
-                if response['status'] == 'complete':
-                    if response['totalLength'] == response['completedLength']:
-                        infohash = response['infoHash']
-                        output_dir = response['dir']
-                        file = os.path.join(output_dir, infohash + '.torrent')
-                        with open(file, 'rb') as input:
-                            data = input.read()
-                            yield infohash, data
-                    aria_client.removeDownloadResult(gid)
-                elif response['status'] in ['waiting', 'active', 'pause']:
-                    left.append(gid)
-                elif response['status'] in ['error', 'removed']:
-                    aria_client.removeDownloadResult(gid)
+                with open(path, 'rb') as input:
+                    metadata = input.read()
+                info = metainfo2json(metadata)
+                if info:
+                    await db_client.save_torrent([(infohash, info)])
+                    await redis_client.sadd(INFOHASH_FOUND, bytes.fromhex(infohash))
+                os.remove(path)
             except Exception as e:
-                logging.exception(e)
+                print(e)
 
-        logging.info(aria_client.getGlobalStat())
-        if len(left) == len(gids):
-            time.sleep(20)
-        gids = left
 
+async def warmup():
+    for infohash in tqdm(await db_client.get_all(), desc='warmup cache'):
+        await redis_client.sadd(INFOHASH_FOUND, bytes.fromhex(infohash))
 
 if __name__ == '__main__':
 
-    aria_server = subprocess.Popen([
-        'aria2c',
-        '--enable-rpc',
-        '--rpc-listen-all=true',
-        '--rpc-allow-origin-all',
-        '--max-concurrent-downloads=500',
-        '--max-connection-per-server=20',
-        '--bt-stop-timeout=600'
-    ])
+    # loop.run_until_complete(warmup())
 
-    time.sleep(10)
+    buffer = []
+    for line in sys.stdin:
+        infohash = line.split()[0]
 
-    aria_client = Aria2RPC(url='http://localhost:6800/rpc', token='dht')
+        if not loop.run_until_complete(redis_client.sismember(INFOHASH_FOUND, bytes.fromhex(infohash))):
+            buffer.append(infohash)
 
-    with open(sys.argv[1]) as input:
-        uris = input.readlines()
-        for infohash, metainfo in fetch_metadata(aria_client, uris, './torrents'):
-            print(infohash, metainfo)
+            if len(buffer) > 10000:
+                loop.run_until_complete(download_metadata(buffer))
 
-    aria_server.kill()
+                buffer = []
+
+    if len(buffer) > 0:
+        download_metadata(buffer)
+

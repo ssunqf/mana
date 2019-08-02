@@ -4,9 +4,10 @@ import re
 import asyncio
 from util.database import Torrent
 from parser.parse import parse
-from parser.lang import extract
+from parser.lang import extract, tokenize
 from parser.patterns import spam_patterns
 import json
+from util.categories import guess_metainfo
 
 
 def make_tsvector(metainfo):
@@ -32,20 +33,29 @@ def make_tsvector(metainfo):
     offset = 1
     for file, level in _each(metainfo):
         fields, phrases = parse(file)
-        print(file)
-        print(fields)
-        for phrase in phrases:
-            for lang, lang_phrases in extract(phrase).items():
-                for p in lang_phrases:
-                    for id, token in enumerate(p.split()):
-                        if token not in vector:
-                            vector[token] = ['%d%s' % (offset, level)]
-                        else:
-                            vector[token].append('%d%s' % (offset, level))
 
-                        offset += 1
-                    # 分割不连续的短语
-                    offset += 1
+        for word in tokenize(file):
+            if word not in vector:
+                vector[word] = ['%d%s' % (offset, level)]
+            else:
+                vector[word].append('%d%s' % (offset, level))
+
+            offset += 1
+
+        offset += 1
+
+        '''
+        for phrase in phrases:
+            for id, word in enumerate(tokenize(phrase)):
+                if word not in vector:
+                    vector[word] = ['%d%s' % (offset, level)]
+                else:
+                    vector[word].append('%d%s' % (offset, level))
+
+                offset += 1
+            # 分割不连续的短语
+            offset += 1
+        '''
 
     def to_str(v):
         res = []
@@ -62,17 +72,30 @@ async def update_tsvector(torrent):
         async with torrent.pool.acquire() as writer:
             async with reader.transaction():
                 async for row in reader.cursor('SELECT infohash, metainfo FROM torrent ORDER BY infohash'):
+                    infohash = row['infohash']
                     metainfo = json.loads(row['metainfo'])
                     if isinstance(metainfo, str):
                         metainfo = json.loads(metainfo)
                     keyword_ts = make_tsvector(metainfo)
+                    category = guess_metainfo(metainfo)
                     async with writer.transaction():
                         try:
-                            await writer.execute(
-                                '''UPDATE torrent
-                                SET metainfo = $1, keyword_ts = $2::tsvector
-                                WHERE infohash = $3''',
-                                json.dumps(metainfo), keyword_ts, row['infohash'])
+                            if infohash.upper() == infohash:
+                                await writer.execute(
+                                    '''UPDATE torrent
+                                    SET metainfo = $2, category = $3, keyword_ts = $4::tsvector
+                                    WHERE infohash = $1''',
+                                    infohash, json.dumps(metainfo), category, keyword_ts)
+                            else:
+                                await writer.execute(
+                                    '''DELETE FROM torrent WHERE infohash = $1''',
+                                    infohash
+                                )
+                                await writer.execute(
+                                    '''INSERT INTO torrent(infohash, metainfo, category, keyword_ts)
+                                    VALUES ($1, $2, $3, $4::tsvector)''',
+                                    infohash.upper(), json.dumps(metainfo), category, keyword_ts
+                                )
                         except Exception as e:
                             print(e)
                             print(e.__dict__)

@@ -20,6 +20,7 @@ import time
 TORRENT_INDEX = 'torrent'
 
 INFOHASH_FOUND = 'INFOHASH_FOUND'
+INFOHASH_COUNTER = 'INFOHASH_COUNTER'
 INFOHASH_LAST_STAMP = 'INFOHASH_LAST_STAMP'
 PEER_STAT = 'PEER_STAT'
 
@@ -55,11 +56,13 @@ class Crawler(dht.DHT):
         logging.debug(f'{reason} {addr} {infohash}')
 
         assert reason in ['get_peers', 'announce_peer']
-        if reason == 'get_peers' or peer_addr is None:
-            return
 
         if await self.redis_client.sismember(INFOHASH_FOUND, bytes.fromhex(infohash)):
             self.exist_count += 1
+            return
+
+        if reason == 'get_peers' or peer_addr is None:
+            await self.redis_client.zincrby(INFOHASH_COUNTER, 1, bytes.fromhex(infohash))
             return
 
         try:

@@ -65,9 +65,7 @@ class WirePeerClient:
         self.pieces = None
 
     async def connect(self):
-        self.reader, self.writer = await asyncio.open_connection(
-            self.ip, self.port
-        )
+        self.reader, self.writer = await asyncio.open_connection(self.ip, self.port)
 
     async def close(self):
         try:
