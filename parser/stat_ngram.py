@@ -4,10 +4,11 @@ import re
 import asyncio
 from util.database import Torrent
 from parser.parse import parse
-from parser.lang import extract, tokenize
+from parser.lang import tokenize
 from parser.patterns import spam_patterns
 import json
 from util.categories import guess_metainfo
+from tqdm import tqdm
 
 
 def make_tsvector(metainfo):
@@ -35,6 +36,8 @@ def make_tsvector(metainfo):
         fields, phrases = parse(file)
 
         for word in tokenize(file):
+            if len(word) > 100:
+                print(word)
             if word not in vector:
                 vector[word] = ['%d%s' % (offset, level)]
             else:
@@ -59,9 +62,11 @@ def make_tsvector(metainfo):
 
     def to_str(v):
         res = []
-        for token, pos in v.items():
-            res.append(token + ':' + ','.join(pos))
-
+        for token, positions in v.items():
+            if len(positions) > 200:
+                positions = sorted(positions, key=lambda x:x[-1])
+                print(positions)
+            res.append(token + ':' + ','.join(positions[:200]))
         return ' '.join(res)
 
     return to_str(vector)
@@ -71,7 +76,9 @@ async def update_tsvector(torrent):
     async with torrent.pool.acquire() as reader:
         async with torrent.pool.acquire() as writer:
             async with reader.transaction():
+                tq = tqdm(desc='update')
                 async for row in reader.cursor('SELECT infohash, metainfo FROM torrent ORDER BY infohash'):
+                    tq.update(1)
                     infohash = row['infohash']
                     metainfo = json.loads(row['metainfo'])
                     if isinstance(metainfo, str):
@@ -98,6 +105,9 @@ async def update_tsvector(torrent):
                                 )
                         except Exception as e:
                             print(e)
+                            print(infohash)
+                            print(len(keyword_ts))
+                            print(keyword_ts)
                             print(e.__dict__)
 
 

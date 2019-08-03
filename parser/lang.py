@@ -4,10 +4,11 @@ import re
 import itertools
 import opencc
 import jieba
-from pyhanlp import *
+# from pyhanlp import *
 import MeCab
+from ftfy import fixes
 
-jieba.load_userdict('./dict/words.txt')
+jieba.load_userdict('../dict/words.txt')
 
 # chinese
 chinese_ranges = [
@@ -120,7 +121,6 @@ def contain(ranges, c):
 
 
 def tokenize(text: str):
-
     def _tokenize(text: str):
         start = 0
         while start < len(text):
@@ -177,11 +177,20 @@ def tokenize(text: str):
         elif lang == 'japanese':
             words.extend([tradition2simple.convert(w) for w in wakati.parse(word).split()])
         elif lang == 'english':
-            words.append(word.lower())
+            hump_pattern = r'([A-Z][a-z]+){2,}'
+            if re.fullmatch(hump_pattern, word):
+                words.extend([sub.lower() for sub in re.findall(r'[A-Z][a-z]+', word)])
+            else:
+                words.append(word.lower())
         else:
             words.append(word)
 
     return [w for w in words if w not in '._-+&@()[]（）【】「」=、/\\, \t\'\"#!~`']
+
+
+def to_tsquery(query: str):
+    words = tokenize(fixes.fix_character_width(query))
+    return ' | '.join(words)
 
 
 if __name__ == '__main__':
