@@ -8,6 +8,8 @@ from typing import List, Tuple, Dict
 import asyncpg
 
 from util.categories import guess_metainfo
+from parser.tsvector import make_tsvector
+
 
 class Torrent:
     def __init__(self, host='localhost', loop=None):
@@ -22,14 +24,17 @@ class Torrent:
     async def create_table(self):
         async with self.pool.acquire() as conn:
             # await conn.execute('''DROP TABLE torrent''')
-            await conn.execute('''CREATE TABLE torrent (
-                infohash varchar(40) PRIMARY KEY,
-                metainfo JSONB,
-                category TEXT,
-                complete INT,
-                downloaded INT,
-                incomplete INT
-                )''')
+            await conn.execute(
+                '''
+                CREATE TABLE torrent (
+                    infohash varchar(40) PRIMARY KEY,
+                    metainfo JSONB,
+                    category TEXT,
+                    keyword_ts TSVECTOR,
+                    complete INT,
+                    downloaded INT,
+                    incomplete INT)
+                ''')
 
     async def save_torrent(self, data: List[Tuple[str, Dict]]):
         try:
@@ -42,8 +47,12 @@ class Torrent:
                         schema='pg_catalog'
                     )
                     await conn.executemany(
-                        '''INSERT INTO torrent (infohash, metainfo) VALUES ($1, $2)''',
-                        [(infohash, metainfo) for infohash, metainfo in data])
+                        '''
+                        INSERT INTO torrent (infohash, metainfo, category, keyword_ts)
+                        VALUES ($1, $2, $3, $4::tsvector)
+                        ''',
+                        [(infohash, metainfo, guess_metainfo(metainfo), make_tsvector(metainfo))
+                         for infohash, metainfo in data])
         except Exception as e:
             logging.warning(str(e))
 
@@ -67,48 +76,6 @@ class Torrent:
             async with conn.transaction():
                 return [row['infohash'] for row in await conn.fetch('''SELECT infohash FROM torrent''')]
 
-    async def set_category(self):
-        async with self.pool.acquire() as reader:
-            async with self.pool.acquire() as writer:
-                async with reader.transaction():
-                    await reader.set_type_codec(
-                        'jsonb',
-                        encoder=lambda d: json.dumps(d, ensure_ascii=False),
-                        decoder=json.loads,
-                        schema='pg_catalog'
-                    )
-                    async for row in reader.cursor('SELECT infohash, metainfo FROM torrent ORDER BY infohash'):
-                        metainfo = json.loads(row['metainfo'])
-                        if isinstance(metainfo, str):
-                            metainfo = json.loads(metainfo)
-                        category = guess_metainfo(metainfo)
-
-                        keywords = list(to_keyword(metainfo))
-                        print(keywords)
-                        async with writer.transaction():
-                            try:
-                                await writer.set_type_codec(
-                                    'jsonb',
-                                    encoder=lambda d: json.dumps(d, ensure_ascii=False),
-                                    decoder=json.loads,
-                                    schema='pg_catalog'
-                                )
-                                if category:
-                                    await writer.execute(
-                                        '''UPDATE torrent
-                                        SET metainfo = $1, category = $2, keyword = $3, keyword_ts = to_tsvector($4)
-                                        WHERE infohash = $5''',
-                                        json.dumps(metainfo), category, keywords, keywords[0], row['infohash'])
-                                else:
-                                    await writer.execute(
-                                        '''UPDATE torrent
-                                        SET metainfo = $1, keyword = $2
-                                        WHERE infohash = $3''',
-                                        json.dumps(metainfo), keywords, row['infohash'])
-                            except Exception as e:
-                                print(e)
-                                print(e.__dict__)
-
     async def foreach(self, table_name, column_name, alias_name):
         async with self.pool.acquire() as conn:
             async with conn.transaction():
@@ -118,8 +85,8 @@ class Torrent:
                     decoder=json.loads,
                     schema='pg_catalog'
                 )
-                return [row[alias_name] for row in await conn.fetch('''SELECT %s as %s FROM %s''' % (column_name, alias_name, table_name))]
-
+                return [row[alias_name] async for row in conn.fetch(
+                    '''SELECT %s as %s FROM %s''' % (column_name, alias_name, table_name))]
 
     async def get_by_infohash(self, infohash):
         async with self.pool.acquire() as conn:
@@ -130,7 +97,9 @@ class Torrent:
                     decoder=json.loads,
                     schema='pg_catalog'
                 )
-                return dict(await conn.fetchrow('''SELECT infohash, metainfo, category FROM torrent WHERE infohash = $1''', infohash))
+                return dict(await conn.fetchrow(
+                    '''SELECT infohash, metainfo, category FROM torrent WHERE infohash = $1''',
+                    infohash))
 
     async def search(self, keyword, **kwargs):
         async with self.pool.acquire() as conn:
@@ -149,26 +118,10 @@ class Torrent:
                     SELECT infohash, metainfo, category
                     FROM torrent
                     WHERE keyword_ts @@ \'%s\'::tsquery %s
-                    ''' % (keyword, 'and ' + conditions if len(kwargs) > 0 else '')
-
+                    ORDER BY keyword_ts <=> \'%s\'::tsquery
+                    ''' % (keyword, 'and ' + conditions if len(kwargs) > 0 else '', keyword)
                 return [dict(row) for row in await conn.fetch(cmd)]
 
-
-async def copy(remote, local):
-    count = 0
-    async with remote.pool.acquire() as reader:
-        async with local.pool.acquire() as writer:
-            async with reader.transaction():
-                async for row in reader.cursor('SELECT infohash, metainfo FROM torrent ORDER BY infohash'):
-                    async with writer.transaction():
-                        try:
-                            await writer.execute('''INSERT INTO torrent(infohash, metainfo) VALUES($1, $2)''',
-                                                 row['infohash'], row['metainfo'])
-                        except:
-                            pass
-                        count += 1
-                        if count == 10000:
-                            return
 
 db_client = Torrent()
 

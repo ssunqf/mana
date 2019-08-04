@@ -179,7 +179,7 @@ async def warmup():
         await redis_client.sadd(INFOHASH_FOUND, bytes.fromhex(infohash))
 
 
-async def fetch_stats(batch_size=1000):
+async def fetch_stats(batch_size=10000):
     no_exists = {}
     successed = []
     for name, tracker_url, download_url in tracker_scrape_urls:

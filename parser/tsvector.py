@@ -65,7 +65,6 @@ def make_tsvector(metainfo):
         for token, positions in v.items():
             if len(positions) > 200:
                 positions = sorted(positions, key=lambda x:x[-1])
-                print(positions)
             res.append(token + ':' + ','.join(positions[:200]))
         return ' '.join(res)
 
