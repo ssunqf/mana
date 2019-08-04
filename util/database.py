@@ -8,7 +8,7 @@ from typing import List, Tuple, Dict
 import asyncpg
 
 from util.categories import guess_metainfo
-from parser.tsvector import make_tsvector
+from parser.search import make_tsvector, make_tsquery
 
 
 class Torrent:
@@ -101,7 +101,7 @@ class Torrent:
                     '''SELECT infohash, metainfo, category FROM torrent WHERE infohash = $1''',
                     infohash))
 
-    async def search(self, keyword, **kwargs):
+    async def search(self, query, **kwargs):
         async with self.pool.acquire() as conn:
             async with conn.transaction():
                 await conn.set_type_codec(
@@ -111,6 +111,7 @@ class Torrent:
                     schema='pg_catalog'
                 )
 
+                query = make_tsquery(query)
                 conditions = ' and '.join([('%s=%d' if isinstance(v, int) else'%s=\'%s\'') % (k, v)
                                            for k, v in kwargs.items()])
 
@@ -119,7 +120,7 @@ class Torrent:
                     FROM torrent
                     WHERE keyword_ts @@ \'%s\'::tsquery %s
                     ORDER BY keyword_ts <=> \'%s\'::tsquery
-                    ''' % (keyword, 'and ' + conditions if len(kwargs) > 0 else '', keyword)
+                    ''' % (query, 'and ' + conditions if len(kwargs) > 0 else '', query)
                 return [dict(row) for row in await conn.fetch(cmd)]
 
 

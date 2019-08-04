@@ -6,7 +6,6 @@ import opencc
 import jieba
 # from pyhanlp import *
 import MeCab
-from ftfy import fixes
 
 jieba.load_userdict('../dict/words.txt')
 
@@ -186,12 +185,6 @@ def tokenize(text: str):
             words.append(word)
 
     return [w for w in words if w not in '._-+&@()[]（）【】「」=、/\\, \t\'\"#!~`']
-
-
-def to_tsquery(query: str):
-    words = tokenize(fixes.fix_character_width(query))
-    return ' | '.join(words)
-
 
 if __name__ == '__main__':
     print(extract('南河茜(仲村みう,なかむらみう)，日本女演员，2017年出道。'))

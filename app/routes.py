@@ -3,6 +3,8 @@
 import asyncio
 from flask_bootstrap import Bootstrap
 from flask import Flask, request, render_template, flash, redirect
+from flask_talisman import Talisman, GOOGLE_CSP_POLICY
+
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, SelectField
 from wtforms.validators import DataRequired, Length
@@ -10,8 +12,12 @@ from wtforms.validators import DataRequired, Length
 from app.config import Config
 from util.database import Torrent
 from util.categories import categories
+from parser.lang import to_tsquery
 
 app = Flask(__name__)
+
+# Talisman(app, content_security_policy=GOOGLE_CSP_POLICY)
+
 app.config.from_object(Config)
 
 bootstrap = Bootstrap(app)
@@ -50,9 +56,9 @@ def search():
         return redirect('/search?q=%s&category=%s' % (searchForm.query.data, searchForm.category.data))
 
     if category and len(category) > 0:
-        results = loop.run_until_complete(db_client.search(query.lower(), category=category))
+        results = loop.run_until_complete(db_client.search(query, category=category))
     else:
-        results = loop.run_until_complete(db_client.search(query.lower()))
+        results = loop.run_until_complete(db_client.search(query))
 
     return render_template('search.html', form=searchForm, results=results)
 
