@@ -39,9 +39,12 @@ tracker_scrape_urls = [
 
 
 def download(url, local_path):
-    p = subprocess.Popen(['wget', '-t', 'inf', url, '-O', local_path])
-    p.wait()
-    return local_path if os.path.exists(local_path) else None
+    while True:
+        p = subprocess.Popen(['curl', '-o', local_path, url])
+        p.wait()
+        if p.returncode == 18:
+            continue
+        return local_path if os.path.exists(local_path) else None
 
 
 def fetch_scrape_file(name, url, local_dir):
@@ -130,36 +133,43 @@ with open(tmp_tracker_file) as input:
     tracker_best_urls = ['&tr=' + quote(url.strip(), safe='') for url in urls]
 
 
-async def download_metadata(infohashs):
-    tmp_magnet = os.path.join(torrent_dir, 'magnet.tmp')
-    with open(tmp_magnet, 'wt') as input:
-        for infohash in infohashs:
-            input.write('magnet:?xt=urn:btih:{}\n'.format(
-                infohash
-                # ''.join(tracker_best_urls)
-            ))
+async def download_metadata(infohashes):
+    tasks = []
+    step = len(infohashes)//5
+    for offset in range(0, len(infohashes), step):
+        tmp_magnet = os.path.join(torrent_dir, 'magnet.tmp.%d' % offset)
+        with open(tmp_magnet, 'wt') as input:
+            for infohash in infohashes[offset:offset+step]:
+                input.write('magnet:?xt=urn:btih:{}\n'.format(
+                    infohash
+                    # ''.join(tracker_best_urls)
+                ))
 
-    p = subprocess.Popen(['aria2c',
-                          '-d', torrent_dir,
-                          '-i', tmp_magnet,
-                          '--bt-metadata-only=true',
-                          '--bt-save-metadata=true',
-                          '--follow-torrent=false',
-                          '--seed-time=0',
-                          '--bt-stop-timeout=600',
-                          '--max-concurrent-downloads=500',
-                          '--max-connection-per-server=16',
-                          '--bt-tracker', ','.join(urls),
-                          '--enable-dht=true',
-                          # '--bt-enable-lpd=true',
-                          # '--enable-peer-exchange=true'
-                          ])
-    try:
-        p.wait()
-    except:
-        p.kill()
+        p = subprocess.Popen(['aria2c',
+                              '-d', torrent_dir,
+                              '-i', tmp_magnet,
+                              '--bt-metadata-only=true',
+                              '--bt-save-metadata=true',
+                              '--follow-torrent=false',
+                              '--seed-time=0',
+                              '--bt-stop-timeout=600',
+                              '--max-concurrent-downloads=500',
+                              '--max-connection-per-server=16',
+                              # '--optimize-concurrent-downloads=true',
+                              '--bt-tracker', ','.join(urls),
+                              '--enable-dht=true',
+                              # '--bt-enable-lpd=true',
+                              '--enable-peer-exchange=true'
+                              ])
+        tasks.append(p)
 
-    for infohash in infohashs:
+    for task in tasks:
+        try:
+            task.wait()
+        except:
+            task.kill()
+
+    for infohash in infohashes:
         path = os.path.join(torrent_dir, infohash.lower() + '.torrent')
         if os.path.exists(path):
             try:
@@ -247,4 +257,5 @@ async def fetch_stats(batch_size=10000):
 
 
 if __name__ == '__main__':
+    loop.run_until_complete(warmup())
     loop.run_until_complete(fetch_stats())

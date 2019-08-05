@@ -30,7 +30,7 @@ var/
 *.spec
 
 # Installer logs
-pip-log.txt
+pip-save.txt
 pip-delete-this-directory.txt
 
 # Unit test / coverage reports
@@ -48,7 +48,7 @@ coverage.xml
 *.pot
 
 # Django stuff:
-*.log
+*.save
 
 # Sphinx documentation
 docs/_build/

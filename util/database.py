@@ -10,6 +10,12 @@ import asyncpg
 from util.categories import guess_metainfo
 from parser.search import make_tsvector, make_tsquery
 
+try:
+    import uvloop
+    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+except:
+    pass
+
 
 class Torrent:
     def __init__(self, host='localhost', loop=None):
@@ -51,7 +57,7 @@ class Torrent:
                         INSERT INTO torrent (infohash, metainfo, category, keyword_ts)
                         VALUES ($1, $2, $3, $4::tsvector)
                         ''',
-                        [(infohash, metainfo, guess_metainfo(metainfo), make_tsvector(metainfo))
+                        [(infohash.upper(), metainfo, guess_metainfo(metainfo), make_tsvector(metainfo))
                          for infohash, metainfo in data])
         except Exception as e:
             logging.warning(str(e))
@@ -66,7 +72,8 @@ class Torrent:
                         SET complete=$2, downloaded=$3, incomplete=$4, update_time=current_timestamp
                         WHERE infohash = $1
                         ''',
-                        data
+                        [(infohash.upper(), complete, downloaded, incomplete)
+                         for infohash, complete, downloaded, incomplete, in data]
                     )
         except Exception as e:
             logging.warning(str(e))
@@ -99,7 +106,7 @@ class Torrent:
                 )
                 return dict(await conn.fetchrow(
                     '''SELECT infohash, metainfo, category FROM torrent WHERE infohash = $1''',
-                    infohash))
+                    infohash.upper()))
 
     async def search(self, query, **kwargs):
         async with self.pool.acquire() as conn:
@@ -120,6 +127,7 @@ class Torrent:
                     FROM torrent
                     WHERE keyword_ts @@ \'%s\'::tsquery %s
                     ORDER BY keyword_ts <=> \'%s\'::tsquery
+                    LIMIT 1000
                     ''' % (query, 'and ' + conditions if len(kwargs) > 0 else '', query)
                 return [dict(row) for row in await conn.fetch(cmd)]
 
