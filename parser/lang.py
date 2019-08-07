@@ -7,7 +7,7 @@ import jieba
 # from pyhanlp import *
 import MeCab
 
-jieba.load_userdict('./dict/words.txt')
+jieba.load_userdict('./data/dict/words.txt')
 
 # chinese
 chinese_ranges = [

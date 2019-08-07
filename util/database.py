@@ -123,12 +123,16 @@ class Torrent:
                                            for k, v in kwargs.items()])
 
                 cmd = '''
-                    SELECT infohash, metainfo, category
-                    FROM torrent
-                    WHERE keyword_ts @@ \'%s\'::tsquery %s
-                    ORDER BY keyword_ts <=> \'%s\'::tsquery
-                    LIMIT 1000
-                    ''' % (query, 'and ' + conditions if len(kwargs) > 0 else '', query)
+                    SELECT *, COUNT(*) OVER() AS total
+                    FROM (
+                        SELECT *, keyword_ts <=> \'%s\'::tsquery AS rank
+                        FROM torrent
+                        WHERE keyword_ts @@ \'%s\'::tsquery %s
+                        ORDER BY keyword_ts <=> \'%s\'::tsquery
+                        LIMIT 1000
+                    ) AS matched
+                    ORDER BY rank, complete DESC
+                    ''' % (query, query, 'and ' + conditions if len(kwargs) > 0 else '', query)
                 return [dict(row) for row in await conn.fetch(cmd)]
 
 

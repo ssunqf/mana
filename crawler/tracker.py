@@ -8,7 +8,7 @@ import os
 from tqdm import tqdm
 import mmap
 from urllib.parse import quote
-from util.database import db_client
+from util.database import Torrent
 from util.torrent import metainfo2json
 
 try:
@@ -43,6 +43,8 @@ def download(url, local_path):
         p = subprocess.Popen(['curl', '-o', local_path, url])
         p.wait()
         if p.returncode == 18:
+            import time
+            time.sleep(30)
             continue
         return local_path if os.path.exists(local_path) else None
 
@@ -117,6 +119,7 @@ def decode_tracker_scrape(path):
 loop = asyncio.get_event_loop()
 redis_client = loop.run_until_complete(
     aioredis.create_redis_pool('redis://localhost'))
+db_client = Torrent(loop=loop)
 
 INFOHASH_FOUND = 'INFOHASH_FOUND'
 
@@ -189,7 +192,7 @@ async def warmup():
         await redis_client.sadd(INFOHASH_FOUND, bytes.fromhex(infohash))
 
 
-async def fetch_stats(batch_size=10000):
+async def fetch_stats(batch_size=5000):
     no_exists = {}
     successed = []
     for name, tracker_url, download_url in tracker_scrape_urls:

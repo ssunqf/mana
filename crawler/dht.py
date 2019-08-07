@@ -11,6 +11,7 @@ from struct import unpack
 
 import better_bencode
 import random
+from crawler.ipinfo import getCountry
 
 
 class ServerError(Exception):
@@ -200,7 +201,9 @@ class DHT(asyncio.DatagramProtocol):
                     b"id": self.fake_node_id(node_id)
                 }
             }, addr)
-        self.find_node(addr=addr, node_id=node_id)
+
+        if getCountry(addr[0]).country.iso_code in {'CN', 'JP', 'KR', 'HK', 'TW'}:
+            self.find_node(addr=addr, node_id=node_id)
 
     def ping(self, addr, node_id=None):
         self.send_message({
@@ -251,7 +254,6 @@ class DHT(asyncio.DatagramProtocol):
 
     async def handle_announce_peer(self, infohash, addr, peer_addr):
         await self.handler(infohash, addr, peer_addr, 'announce_peer')
-
 
 
 class FakeDHT(DHT):
