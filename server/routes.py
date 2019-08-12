@@ -12,7 +12,6 @@ from wtforms.validators import DataRequired, Length
 from app.config import Config
 from util.database import Torrent
 from util.categories import categories
-from parser.lang import to_tsquery
 
 app = Flask(__name__)
 
@@ -30,7 +29,7 @@ class SearchForm(FlaskForm):
     submit = SubmitField('GO')
 
 
-db_client = Torrent()
+db_client = Torrent('207.148.124.42')
 loop = asyncio.get_event_loop()
 
 

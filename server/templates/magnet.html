@@ -20,8 +20,8 @@
 
         {% endif %}
       </div>
-      <div> {{ data.get('seeder', 1) }} </div>
-        <div> {{ data.get('leeder', 1) }} </div>
+      <div> {{ data.get('seeder', data['complete']) }} </div>
+        <div> {{ data.get('leeder', data['incomplete']) }} </div>
     </div>
   {% endif %}
 {% endblock %}

@@ -9,9 +9,19 @@
     <title>magnet search</title>
     <link href="{{ url_for('static', filename='tree.css') }}" rel="stylesheet" type="text/css">
     {{ bootstrap.load_css() }}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.js"></script>
+
 </head>
 <body>
 <main class="container">
+    <div class="ui search">
+      <div class="ui icon input">
+        <input class="prompt" type="text" placeholder="Common passwords...">
+        <i class="search icon"></i>
+      </div>
+      <div class="results"></div>
+    </div>
     {% block content %} {% endblock %}
     <footer class="text-center">
         {% block footer %}

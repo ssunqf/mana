@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1 class="ui center aligned header">Magnet search</h1>
+  <div class="ui center aligned segment">
+    {{ render_form(form, form_type="inline") }}
+  </div>
+
+  <div class="ui center aligned container">
+    <table class="ui striped table">
+      <thead>
+        <tr>
+          <th class="ten wide">标题</th>
+          <th class="one wide">类型</th>
+          <th class="one wide">种子数</th>
+          <th class="one wide">下载数</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for result in results %}
+          <tr>
+            <td>
+              {% if "files" in result['metainfo'] %}
+                  <div class="directory">
+                    <i class="folder icon"></i>
+                    {{ result['metainfo']['name'] }}
+                  </div>
+                  <ul class="nested">
+                    {% for file in result['metainfo']['files'] %}
+                       <li><i class="file outline icon"></i>{{file['path']}}</li>
+                    {% endfor %}
+                  </ul>
+              {% else %}
+                <div>
+                  <i class="file outline icon"></i> {{ result['metainfo']['name'] }}
+                </div>
+              {% endif %}
+            </td>
+            <td> {{ result.get('category', '') }} </td>
+            <td> {{ result.get('seeder', result['complete']) }} </td>
+            <td> {{ result.get('leeder', result['incomplete']) }} </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+
+{% endblock %}
+
+{% block script %}
+  <script>
+    var toggler = document.getElementsByClassName("directory");
+    var i;
+
+    for (i = 0; i < toggler.length; i++) {
+      toggler[i].addEventListener("click", function() {
+        this.parentElement.querySelector(".nested").classList.toggle("active");
+        this.classList.toggle("caret-down");
+      });
+    }
+  </script>
+{% endblock %}
