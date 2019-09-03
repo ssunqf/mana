@@ -210,40 +210,26 @@ class Torrent:
             except Exception as e:
                 raise e
 
-    async def fetch(self, queue: asyncio.Queue, batch_size=300):
-        count = 0
-        total_time, total = 0., 0
-        while True:
-            try:
-                async with self.pool.acquire() as reader:
-                    async with reader.transaction():
-                        await reader.set_type_codec(
-                            'jsonb',
-                            encoder=lambda d: json.dumps(d, ensure_ascii=False),
-                            decoder=json.loads,
-                            schema='pg_catalog'
-                        )
+    async def fetch(self, queue: asyncio.Queue):
+        try:
+            async with self.pool.acquire() as reader:
+                async with reader.transaction(isolation='serializable', readonly=True):
+                    await reader.set_type_codec(
+                        'jsonb',
+                        encoder=lambda d: json.dumps(d, ensure_ascii=False),
+                        decoder=json.loads,
+                        schema='pg_catalog'
+                    )
 
-                        cmd = f'''
-                            SELECT infohash, metainfo FROM torrent
-                            ORDER BY infohash
-                            LIMIT {batch_size} OFFSET {count}
-                            '''
-                        import time
-                        start = time.time()
-                        batch = await reader.fetch(cmd)
-                        total_time += time.time() - start
-                        total += 1
-                        print('speed: %f' % (total_time * batch_size/total))
-                        for row in batch:
-                            count += 1
-                            await queue.put(row)
+                    cmd = f'''
+                        SELECT infohash, metainfo FROM torrent
+                        '''
 
-                        if len(batch) < batch_size:
-                            await queue.put(None)
-                            break
-            except Exception as e:
-                raise e
+                    async for row in reader.cursor(cmd):
+                        await queue.put(row)
+            await queue.put(None)
+        except Exception as e:
+            raise e
 
     async def consumer(self, readq: asyncio.Queue, writeq: asyncio.Queue):
         tq = tqdm(desc='process')
@@ -255,7 +241,7 @@ class Torrent:
             await writeq.put((item['infohash'], make_tsvector(item['metainfo']), detect_nsfw(item['metainfo'])))
             tq.update()
 
-    async def output(self, writeq: asyncio.Queue, batch_size=500):
+    async def output(self, writeq: asyncio.Queue, batch_size=50):
         while True:
             batch = []
             while len(batch) < batch_size:
@@ -274,6 +260,8 @@ class Torrent:
             if len(batch) < batch_size:
                 break
 
+            del batch
+
     async def update_all(self):
         readq, writeq = asyncio.Queue(maxsize=50000), asyncio.Queue(maxsize=50000)
         await asyncio.gather(self.fetch(readq), self.consumer(readq, writeq), self.output(writeq))
@@ -281,7 +269,7 @@ class Torrent:
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
-    db_client = Torrent(host='207.148.124.42', loop=loop)
+    db_client = Torrent(loop=loop)
     loop.run_until_complete(db_client.update_all())
 
 
