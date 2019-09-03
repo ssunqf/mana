@@ -12,6 +12,7 @@ def to_str(bytes):
     text, encoding = ftfy.guess_bytes(bytes)
     return text
 
+
 class Dir:
     def __init__(self, name, length, files):
         self.name = name
@@ -29,10 +30,15 @@ class Dir:
         for sub in self.files:
             yield from sub.traversal()
 
+    def sort(self):
+        self.files = sorted(self.files, key=lambda f: f.length, reverse=True)
+        for f in self.files:
+            f.sort()
+
 
 def build_dir_tree(metainfo):
     root = Dir(metainfo['name'], 0, [])
-    for path in metainfo.get('files', []):
+    for path in sorted(metainfo.get('files', []), key=lambda f: f['path']):
         path, length = path['path'], path['length']
         if path.startswith('_____padding') or path.startswith('論壇文宣'):
             continue
@@ -41,15 +47,14 @@ def build_dir_tree(metainfo):
         curr.length += length
 
         for dir in path.split('/'):
-            for file in curr.files:
-                if file.name == dir:
-                    curr = file
-                    curr.length += length
-                    break
+            if len(curr.files) > 0 and dir == curr.files[-1].name:
+                curr = curr.files[-1]
+                curr.length += length
             else:
                 curr.files.append(Dir(dir, length, []))
                 curr = curr.files[-1]
 
+    root.sort()
     root.length = metainfo['length']
     return root.files[0] if len(root.files) == 1 and root.name == root.files[0].name else root
 
