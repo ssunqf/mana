@@ -6,6 +6,7 @@ import time
 import itertools
 from typing import Dict
 from collections import namedtuple
+from tqdm import tqdm
 
 import requests
 from util.database import Torrent
@@ -131,7 +132,8 @@ class Scraper:
     def connection_lost(self, exc: OSError):
         print(exc)
 
-    async def scrape(self, queue: asyncio.Queue, batch_size=5000):
+    async def scrape(self, queue: asyncio.Queue, batch_size=1):
+        tq = tqdm(desc='scrape')
         while True:
             infohashes = []
             while len(infohashes) < batch_size:
@@ -153,6 +155,7 @@ class Scraper:
 
             await database.update_status(results)
 
+            tq.update(len(infohashes))
             if len(infohashes) < batch_size:
                 break
 
