@@ -1,12 +1,12 @@
 #!/usr/bin/env python3.6
 # -*- coding: utf-8 -*-
 import asyncio
-import aioredis
 from urllib import request
 import subprocess
 import os
 from tqdm import tqdm
 import mmap
+from crawler.cache import Cache
 from urllib.parse import quote
 from util.database import Torrent
 from util.torrent import metainfo2json
@@ -18,7 +18,6 @@ except:
     pass
 
 tracker_scrape_urls = [
-    # 'torrents_min' : 'magnet:?xt=urn:btih:B3BCB8BD8B20DEC7A30FD9EC43CE7AFAAF631E06',
     (
         'tracker.pirateparty.gr',
         'udp://tracker.pirateparty.gr:6969/announce',
@@ -68,9 +67,7 @@ def fetch_scrape_file(name, url, local_dir):
 
 
 def decode_tracker_scrape(path):
-
     def _decode(mm):
-
         if mm[:9] != b'd5:filesd' and mm[-1] != b'e':
             raise
 
@@ -117,9 +114,10 @@ def decode_tracker_scrape(path):
 
 
 loop = asyncio.get_event_loop()
-redis_client = loop.run_until_complete(
-    aioredis.create_redis_pool('redis://localhost'))
+cache = Cache(loop)
 db_client = Torrent(loop=loop)
+
+cache.warmup(db_client)
 
 INFOHASH_FOUND = 'INFOHASH_FOUND'
 
@@ -143,9 +141,9 @@ async def download_metadata(infohashes):
         tmp_magnet = os.path.join(torrent_dir, 'magnet.tmp.%d' % offset)
         with open(tmp_magnet, 'wt') as input:
             for infohash in infohashes[offset:offset+step]:
-                input.write('magnet:?xt=urn:btih:{}\n'.format(
-                    infohash
-                    # ''.join(tracker_best_urls)
+                input.write('magnet:?xt=urn:btih:{}{}\n'.format(
+                    infohash,
+                    ''.join(tracker_best_urls)
                 ))
 
         p = subprocess.Popen(['aria2c',
@@ -181,15 +179,10 @@ async def download_metadata(infohashes):
                 info = metainfo2json(metadata)
                 if info:
                     await db_client.save_torrent([(infohash, info)])
-                    await redis_client.sadd(INFOHASH_FOUND, bytes.fromhex(infohash))
+                    await cache.cache_infohash(infohash)
                 os.remove(path)
             except Exception as e:
                 print(e)
-
-
-async def warmup():
-    for infohash in tqdm(await db_client.get_all(), desc='warmup cache'):
-        await redis_client.sadd(INFOHASH_FOUND, bytes.fromhex(infohash))
 
 
 async def fetch_stats(batch_size=5000):
@@ -205,7 +198,7 @@ async def fetch_stats(batch_size=5000):
             with open(os.path.join(torrent_dir, name), 'wt') as output:
                 for infohash, infos in decode_tracker_scrape(scrape_file):
                     infohash = infohash.upper()
-                    if not await redis_client.sismember(INFOHASH_FOUND, bytes.fromhex(infohash)):
+                    if not await cache.find_infohash(infohash):
                         no_exists[infohash] = max(infos['complete'] + infos['incomplete'],
                                                   no_exists.get(infohash, 0))
 
@@ -257,8 +250,3 @@ async def fetch_stats(batch_size=5000):
 
     if len(buff) > 0:
         await db_client.update_status(buff)
-
-
-if __name__ == '__main__':
-    loop.run_until_complete(warmup())
-    loop.run_until_complete(fetch_stats())

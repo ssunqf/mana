@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% set humanfriendly = import('util.utils') %}
+{% set builtins = import('builtins') %}
+
+{% block content %}
+  <div class="card border-light mb-4">
+    <div class="card-header">
+      <h2>{{ data['metainfo']['name'] }}</h2>
+    </div>
+
+    <div class="card-body">
+      <div>
+        种子哈希：<a href="{{ magnet }}">{{ data['infohash'] }}</a>
+      </div>
+      <div>文件类型：<b>{{ humanfriendly.format_category(data['category']) }}</b></div>
+      <div>文件数目：<b>{{ builtins.len(data['metainfo']['files']) if 'files' in data['metainfo'] else 1 }}</b></div>
+      <div>文件大小：<b>{{ humanfriendly.format_size(data['metainfo']['length']) }}</b></div>
+      <div>状态信息：
+        <i class="fa fa-arrow-up"><b>{{ data['seeders'] }}</b> </i>
+        <i class="fa fa-arrow-down"><b>{{ data['leechers'] }}</b> </i>
+        <i class="fa fa-check"><b>{{ data['completed'] }}</b> </i>
+        (<b>{{ data['update_time'].strftime("%m/%d/%Y") }}更新</b>)
+      </div>
+      <!--div>
+        关键词：{% for keyword in data['keywords'] %} <a href="{{ './search?query=' + keyword }}">{{ keyword }}</a> {% endfor %}
+      </div-->
+    </div>
+    <div class="card-footer">
+      <a href="{{ magnet }}">
+        <i class="fa fa-magnet fa-fw" aria-hidden="true"></i>磁力链接
+      </a>
+    </div>
+  </div>
+    <!-- div>
+      <a href="play?infohash={{ data['infohash'] }}">在线播放</a>
+    </div -->
+  <div class="card border-light mb-3">
+    <div class="card-header">文件列表：</div>
+    <div class="card-body">
+      <ul class="main-tree">
+        <li class="tree-title">{{ data['dir']['name'] }}<b> ({{ humanfriendly.format_size(data['dir']['length']) }})</b></li>
+        {% if "files" in data['dir'] %}
+          {% for file in data['dir']['files'] recursive %}
+            {% if 'files' in file %}
+              <ul class="tree">
+                <li class="tree-title">{{ file['name'] }}<b> ({{ humanfriendly.format_size(file['length']) }})</b></li>
+                {{ loop(file['files']) }}
+              </ul>
+            {% else %}
+              <li class="tree-item">{{ file['name'] }}<b> ({{ humanfriendly.format_size(file['length']) }})</b></li>
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+{% endblock %}
+
+{% block script %}
+  <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+  <script src="{{ url_for('static', filename='filetree.js') }}"></script>
+{% endblock %}

@@ -6,7 +6,7 @@ import aioredis
 from tqdm import tqdm
 
 from util import database
-from crawler import dht, peer
+from crawler import dht, peer, cache
 from util.torrent import metainfo2json
 
 try:
@@ -31,10 +31,11 @@ class Crawler(dht.DHT):
         self.active_tcp_limit = asyncio.Semaphore(active_tcp_limit)
         self.threshold = active_tcp_limit
 
-        self.redis_client = asyncio.get_event_loop().run_until_complete(
-                aioredis.create_redis_pool('redis://localhost'))
+        self.db_client = database.Torrent(loop=self.loop)
 
-        self.db_client = database.Torrent(loop)
+        self.cache = cache.Cache(self.loop)
+
+        self.loop.run_until_complete(self.cache.warmup(self.db_client))
 
         self.get_peer_count = 0
         self.announce_peer_count = 0
@@ -43,10 +44,6 @@ class Crawler(dht.DHT):
         self.try_metainfo_count = 0
         self.success_metainfo_count = 0
         self.start_time = time.time()
-
-    async def warmup(self):
-        for infohash in tqdm(await self.db_client.get_all(), desc='warmup cache'):
-            await self.redis_client.sadd(INFOHASH_FOUND, bytes.fromhex(infohash))
 
     async def handler(self, infohash, addr, peer_addr = None, reason = None):
 
@@ -57,12 +54,11 @@ class Crawler(dht.DHT):
 
         assert reason in ['get_peers', 'announce_peer']
 
-        if await self.redis_client.sismember(INFOHASH_FOUND, bytes.fromhex(infohash)):
-            self.exist_count += 1
+        if reason == 'get_peers' or peer_addr is None:
             return
 
-        if reason == 'get_peers' or peer_addr is None:
-            await self.redis_client.zincrby(INFOHASH_COUNTER, 1, bytes.fromhex(infohash))
+        if await self.cache.find_infohash(infohash):
+            self.exist_count += 1
             return
 
         try:
@@ -78,7 +74,7 @@ class Crawler(dht.DHT):
                 await self.db_client.save_torrent([(infohash, metainfo)])
                 self.insert_count += 1
 
-                await self.redis_client.sadd(INFOHASH_FOUND, bytes.fromhex(infohash))
+                await self.cache.cache_infohash(infohash)
 
         except (ConnectionRefusedError, ConnectionResetError,
                 asyncio.streams.IncompleteReadError, asyncio.TimeoutError, OSError) as e:
@@ -128,7 +124,7 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
 
     crawler = Crawler(loop)
-    loop.run_until_complete(crawler.warmup())
+    # loop.run_until_complete(crawler.warmup())
     loop.run_until_complete(crawler.run(port))
 
 

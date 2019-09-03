@@ -1,3 +1,4 @@
+requests
 tqdm==4.31.1
 better_bencode==0.2.1
 aiopg==0.16.0
@@ -18,3 +19,9 @@ sanic==19.6.2
 ftfy==5.5.1
 flask-talisman==0.7.0
 geoip2==2.9.0
+humanfriendly==4.18
+psycopg2==2.8.2
+Flask-Caching==1.7.2
+Flask-APScheduler==1.11.0
+uwsgi==2.0.18
+ahocorapy==1.5.2

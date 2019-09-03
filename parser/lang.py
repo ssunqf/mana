@@ -6,8 +6,12 @@ import opencc
 import jieba
 # from pyhanlp import *
 import MeCab
+import os
 
-jieba.load_userdict('./data/dict/words.txt')
+
+basedir = os.path.abspath(os.path.dirname(__file__))
+
+jieba.load_userdict(os.path.join(basedir, '../data/dict/words.txt'))
 
 # chinese
 chinese_ranges = [
@@ -79,7 +83,7 @@ wakati = MeCab.Tagger("-Owakati")
 
 def preprocess(lang: str, phrases):
     if lang == 'chinese':
-        return [' '.join([term.word for term in HanLP.segment(tradition2simple.convert(p))]) for p in phrases]
+        return [' '.join([term for term in jieba.cut(tradition2simple.convert(p))]) for p in phrases]
     elif lang == 'japanese':
         return [wakati.parse(p).split() for p in phrases]
     elif lang == 'english':
@@ -184,7 +188,7 @@ def tokenize(text: str):
         else:
             words.append(word)
 
-    return [w for w in words if w not in '._-+&@()[]（）【】「」=、/\\, \t\'\"#!~`']
+    return [w for w in words if w not in '._-+&@()[]（）【】「」=、/\\, \t\'\"#!~`:：']
 
 if __name__ == '__main__':
     print(extract('南河茜(仲村みう,なかむらみう)，日本女演员，2017年出道。'))
@@ -200,3 +204,5 @@ if __name__ == '__main__':
     print(tokenize('[190619]逢田梨香子 1st EP「Principal」(CD+DVD初回限定盤)[320K].rar'))
     print(tokenize('ymdha@草榴社區@MOKO美空徐莹私拍套图'))
     print(tokenize('请所有支持热爱色中色的会员互相转帖告知！让世人知道真相。916事件'))
+
+    print(tokenize('六月最爱'))

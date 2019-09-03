@@ -10,13 +10,13 @@ from better_bencode import loads as bdecode, dumps as bencode
 import mimetypes
 
 categories = [
-    'video',
-    'audio',
-    'archive',
-    'ebook',
-    'software',
-    'image',
-    'other',
+    ('video', '影视'),
+    ('audio', '音乐'),
+    ('archive', '文档'),
+    ('ebook', '书藉'),
+    ('software', '软件'),
+    ('image', '图片'),
+    ('other', '其它')
 ]
 
 rar_part_re = re.compile("^\.(r[0-9]+|md[0-9]+)$")

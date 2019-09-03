@@ -8,9 +8,10 @@ from typing import List
 import subprocess
 import asyncio
 import aioredis
+from crawler.cache import Cache
 from urllib import request
 from urllib.parse import quote
-from util.database import db_client
+from util.database import Torrent
 from util.torrent import metainfo2json
 
 tracker_scrape_urls = [
@@ -41,8 +42,9 @@ def download(url, local_path):
 
 
 loop = asyncio.get_event_loop()
-redis_client = loop.run_until_complete(
-    aioredis.create_redis_pool('redis://localhost'))
+cache = Cache(loop)
+database = Torrent(loop)
+cache.warmup(database)
 
 INFOHASH_FOUND = 'INFOHASH_FOUND'
 
@@ -91,16 +93,11 @@ async def download_metadata(infohashs: List[str]):
                     metadata = input.read()
                 info = metainfo2json(metadata)
                 if info:
-                    await db_client.save_torrent([(infohash, info)])
-                    await redis_client.sadd(INFOHASH_FOUND, bytes.fromhex(infohash))
+                    await database.save_torrent([(infohash, info)])
+                    await cache.cache_infohash(infohash)
                 os.remove(path)
             except Exception as e:
                 print(e)
-
-
-async def warmup():
-    for infohash in tqdm(await db_client.get_all(), desc='warmup cache'):
-        await redis_client.sadd(INFOHASH_FOUND, bytes.fromhex(infohash))
 
 if __name__ == '__main__':
 
@@ -110,7 +107,7 @@ if __name__ == '__main__':
     for line in sys.stdin:
         infohash = line.split()[0]
 
-        if not loop.run_until_complete(redis_client.sismember(INFOHASH_FOUND, bytes.fromhex(infohash))):
+        if not loop.run_until_complete(cache.find_infohash(infohash)):
             buffer.append(infohash)
 
             if len(buffer) > 10000:

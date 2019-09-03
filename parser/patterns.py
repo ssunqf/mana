@@ -3,66 +3,68 @@
 
 # copy from https://github.com/divijbindlish/parse-torrent-name/blob/master/PTN/patterns.py
 # add chinese, japanese support
+import os
 import re
 from parser.file import file_pattern
+from util.code import codes
 
-
+'''
 JAV_CODE_PREFIX = '|'.join([
     'abc', 'abp', 'abs', 'aby', 'adn', 'adz', 'affa', 'afs', 'aka', 'akph',
     'ama', 'ambi', 'annd', 'ap', 'apaa', 'apae', 'apak', 'apkh', 'apnh', 'apns',
-    'aqsh', 'ara', 'arso', 'at', 'atfb', 'atid', 'atom', 'aukg', 'avkh', 'avop', 'avsa',
+    'aqsh', 'ara', 'arso', 'arm', 'at', 'atfb', 'atid', 'atom', 'aukg', 'avkh', 'avop', 'avsa',
 
-    'bazx', 'bbad', 'bban', 'bbi', 'bcdp', 'bcdv', 'bcv', 'bdsr', 'bf', 'bgn', 'bid', 'bijn', 'blk', 'blor', 'bra',
+    'bazx', 'bbad', 'bban', 'bbi', 'bcdp', 'bcdv', 'bcv', 'bdsr', 'beb', 'bf', 'bobb', 'bgn', 'bid', 'bijn', 'blk', 'blor', 'bra',
     'bt', 'bur',
 
-    'ccx', 'cesd', 'chn', 'chrv', 'chs', 'cjod', 'club', 'cmd', 'cmi', 'cnd', 'crc', 'crpd', 'cwm',
+    'ccx', 'cead', 'cesd', 'chn', 'chrv', 'chs', 'cjod', 'club', 'cmd', 'cmi', 'cnd', 'crc', 'crpd', 'cwm',
 
-    'dandy', 'dap', 'dasd', 'davi', 'dcol', 'dcv', 'ddk', 'dic', 'dism', 'diy', 'djsk', 'dmbl', 'dmdg', 'docp', 'doks',
-    'dom', 'dtrs', 'dvaj', 'dvdes', 'dvdms',
+    'dandy', 'dap', 'dasd', 'davi', 'dcol', 'dcv', 'ddk', 'ddt', 'dic', 'dism', 'diy', 'djsk', 'dmbl', 'dmdg', 'docp', 'doks',
+    'dom', 'dtrs', 'dv', 'dvaj', 'dvdes', 'dvdms',
 
-    'ebod', 'ecb', 'edd', 'ekdv', 'ekw', 'emp', 'esk', 'etqr', 'eyan',
+    'ebod', 'ecb', 'edd', 'ekdv', 'ekw', 'emp', 'esk', 'etqr', 'eyan', 'eq',
 
     'faa', 'fc2ppv', 'fch', 'fiv', 'fone', 'fset', 'fsgd', 'fskt', 'fsre', 'fsta', 'fstc', 'ftn',
 
-    'gapl', 'gar', 'gcicd', 'gdhh', 'gdju', 'gdtm', 'gent', 'gets', 'gfd', 'ggg', 'gne', 'gtal', 'gtj', 'gun', 'gvg',
+    'gapl', 'gar', 'gcicd', 'gdhh', 'gdju', 'gdtm', 'gent', 'gets', 'gfd', 'ggg', 'gg', 'gne', 'gs', 'gtal', 'gtj', 'gun', 'gvg',
 
-    'har', 'havd', 'hawa', 'hbad', 'hdi', 'hdka', 'herr', 'hiz', 'hjmo', 'hmgl', 'hmpd', 'hnd', 'hndb', 'hnds', 'hntv',
+    'har', 'havd', 'hawa', 'hbad', 'hdi', 'hdka', 'herr', 'heyzo', 'hiz', 'hjmo', 'hmgl', 'hmpd', 'hnd', 'hndb', 'hnds', 'hntv',
     'hodv', 'homa', 'honb', 'hrrb', 'hunt', 'hunta', 'husr', 'hzgd',
 
     'ibw', 'id', 'idbd', 'iene', 'iesp', 'inct', 'inu', 'ipsd', 'iptd', 'ipx', 'ipz',
 
-    'jag', 'jan', 'jks', 'jmty', 'juc', 'jufd', 'jux', 'juy',
+    'jag', 'jan', 'jks', 'jmty', 'jrzd', 'juc', 'jufd', 'jufe', 'jux', 'juy', 'jksr',
 
-    'kagp', 'kane', 'kawd', 'kbi', 'kdg', 'kdkj', 'kibd', 'kird', 'km', 'kmhr', 'ksbj', 'ksdo', 'ktds',
-    'ktkc', 'ktkl', 'ktkp', 'ktkq', 'ktkx', 'ktkz', 'ktr', 'ktra', 'kwbd', 'kws', 'kwsd',
+    'kagp', 'kane', 'kawd', 'kbi', 'kdg', 'kdkj', 'kibd', 'kidm', 'kird',  'ko', 'km', 'kmhr', 'ksbj', 'ksdo', 'ktds',
+    'ktkc', 'ktkl', 'ktkp', 'ktkq', 'ktkx', 'ktkz', 'ktr', 'ktra', 'kwbd', 'kws', 'kwsd', 'kv'
 
     'lad', 'laf', 'lafbd', 'lid', 'lid03', 'lod', 'lol', 'love', 'lxvs', 'lzpl',
 
     'madm', 'magn', 'mann', 'maraa', 'mas', 'maxa', 'mcsr', 'mct', 'mdar', 'mdb', 'mds', 'mdtm', 'mdyd',
-    'mdym', 'mei', 'meyd', 'mgt', 'miad', 'miae', 'mibd', 'midd', 'mide', 'mifd', 'migd', 'mird', 'mism',
+    'mdym', 'mei', 'meyd', 'mgt', 'miaa', 'miad', 'miae', 'mibd', 'midd', 'mide', 'mifd', 'migd', 'mird', 'mism',
     'mist', 'mium', 'mizd', 'mkbd', 'mkd', 'mkmp', 'mmgh', 'mmkz', 'mmna', 'mmnd', 'mmts', 'mmus', 'mmxd',
-    'moc', 'momj', 'mrxd', 'mudr', 'mukd', 'mum', 'mvsd', 'mxgs', 'mxsps',
+    'moc', 'momj', 'mrxd', 'mudr', 'mukd', 'mum', 'mvsd', 'mxgs', 'mxsps', 'mond', 'mywife',
 
-    'nacr', 'nacs', 'nafi', 'naka', 'nanx', 'nass', 'natr', 'ngod', 'nhdta', 'nhdtb', 'nise', 'nkkd', 'nks',
-    'nnf', 'nnpj', 'npv', 'nsr', 'nttr',
+    'nacr', 'nacs', 'nafi', 'naka', 'nanx', 'nass', 'natr', 'ngod', 'nhdta', 'nhdtb', 'nise',  'nitr', 'nkkd', 'nks',
+    'nnf', 'nnpj', 'npv', 'nsps', 'nsr', 'ntr', 'nttr',
 
-    'ofje', 'ogpp', 'okad', 'oksn', 'once', 'oned', 'onet', 'onez', 'ongp', 'onsd', 'opud', 'oyc', 'oyj',
-    'parm', 'pat', 'pgd', 'piyo', 'pjd', 'pk', 'pkpd', 'pla', 'post', 'pppd', 'pps', 'ppt', 'pred', 'prou', 'prtd',
+    'oba', 'ofje', 'ogpp', 'okad', 'oksn', 'om', 'once', 'oned', 'onet', 'onez', 'ongp', 'onsd', 'opud', 'oyc', 'oyj',
+    'parm', 'pat', 'pgd', 'piyo', 'pjd', 'pk', 'pkpd', 'pla', 'post', 'pppd', 'pps', 'ppt', 'pred', 'prnfle', 'prou', 'prtd',
     'pt', 'ptko', 'ptks', 'pxh',
     'qp',
 
     'r18', 'raw', 'rbd', 'rct', 'rctd', 'rdd', 'rdt', 'real', 'rebdb', 'red', 'rega', 'rhj', 'rki', 'rtp',
 
-    'saba', 'sace', 'sama', 'scop', 'scpx', 'sdab', 'sdde', 'sden', 'sdiy', 'sdmu', 'sdnm', 'sdsi', 'sero',
-    'sfba', 'sga', 'shic', 'shkd', 'shx', 'siro', 'sis', 'siv', 'sl', 'smdv', 'smile', 'snis', 'soav', 'soe',
-    'sprd', 'spz', 'sqte', 'srs', 'srxv', 'ssni', 'sspd', 'star', 'stss', 'suji', 'supa', 'supd', 'svdvd', 'sw', 'sy',
+    'saba', 'sace', 'sama', 'scop', 'scpx', 'sdab', 'sdde', 'sden', 'sdiy', 'sdmu', 'sdmt', 'sdnm', 'sdsi', 'sero', 'sky',
+    'sfba', 'sga', 'she', 'shic', 'shkd', 'shx', 'siro', 'sis', 'siv', 'sl', 'smdv', 'smile', 'snis', 'soav', 'soe', 'sora',
+    'sprd', 'spz', 'sqte', 'srs', 'srxv', 'ssni', 'sspd', 'star', 'stars', 'stp', 'stss', 'suji', 'supa', 'supd', 'svdvd', 'sw', 'sy',
 
     't28', 'tbl', 'team', 'tek', 'tem', 'temp', 'tikb', 'tikc', 'tikm', 'tikp', 'tki', 'tmcy', 'tmem', 'tmhp', 'tmvi',
     'tokyo', 'tomn', 'tppn', 'tre', 'trp', 'trum', 'tus', 'tyod',
 
     'uby', 'umd', 'umso', 'upsm', 'urlh',
 
-    'vdd', 'vec', 'venu', 'vgd', 'vicd', 'voss', 'vrtm', 'vvp',
+    'vagu', 'vdd', 'vec', 'venu', 'vgd', 'vicd', 'voss', 'vrtm', 'vvp',
 
     'wanz', 'whx', 'wkd', 'www',
 
@@ -70,9 +72,10 @@ JAV_CODE_PREFIX = '|'.join([
 
     'yal', 'ymdd', 'yrh', 'yst',
 
-    'zex', 'zizg', 'zuko'])
+    'zex', 'zizg', 'zuko', 'zzy'])
+'''
 
-jav_code_pattern = r'(?i)\b(((%s)[\-_. ]?([0-9]{3,6})(\w\b)?))' % (JAV_CODE_PREFIX)
+jav_code_pattern = r'\b(((%s)[\-_. ]?0{0,2}([0-9]{3,6})(\w\b)?))' % ('|'.join(codes))
 
 
 def normalize_jav_code(text: str):
@@ -89,7 +92,7 @@ def normalize_resolution(text: str):
 
 
 patterns = [
-    ('code', list, r'(?i)\b(((%s)[\-_. ]?[0-9]{3,6}(\w\b)?))' % (JAV_CODE_PREFIX), normalize_jav_code),
+    ('code', list, r'\b(((%s)[\-_. ]?[0-9]{2,8}(?=\w|\b)?))' % ('|'.join(codes)), normalize_general),
     ('season', list, r'(?i)\b(s?([0-9]{1,2}))[ex]', normalize_general),
     ('season', list, r'(?i)\b(s(?:eason[._\- ]?)?([0-9]{1,2}))', normalize_general),
     ('episode', list, r'(?i)(e(?:p(?:isode)?)?([0-9]{2,4}))\D', normalize_general),
@@ -109,7 +112,7 @@ patterns = [
      normalize_general),
 
     ('codec', str, r'(?i)\b((xvid|[hx]\.?26[45]))', normalize_general),
-    ('tag',  list, r'(?i)((无码|有码|骑兵|步兵|無碼))', normalize_general),
+    ('tag', list, r'(?i)((无码|有码|骑兵|步兵|無碼))', normalize_general),
     ('person', list, r'(?i)((明日花绮罗))', normalize_general),
     ('audio', str, r'(?i)\b((MP3|DD5\.?1|Dual[\- ]Audio|LiNE|DTS|AAC[.-]LC|AAC(\.?2\.0)?|AC3([\. ]5\.1)?([.-]EVO)?))\b',
      normalize_general),
@@ -123,7 +126,7 @@ patterns = [
     ('sbs', str, r'(?i)\b(((?:Half-)?SBS))\b', normalize_general),
     ('container', str, r'(?i)\b((MKV|AVI|MP4))\b', normalize_general),
 
-    # ('group', str, r'\b(- ?([^\-]+(?:-={[^\-]+-?$)?))$', normalize_general),
+    # ('build_dir_tree', str, r'\b(- ?([^\-]+(?:-={[^\-]+-?$)?))$', normalize_general),
 
     ('extended', bool, r'(?i)\b(EXTENDED(:?.CUT)?)\b', normalize_general),
     ('hardcoded', bool, r'(?i)\b((HC))\b', normalize_general),
@@ -134,6 +137,5 @@ patterns = [
     ('3d', bool, r'(?i)\b((3D))\b', normalize_general),
     ('suffix', str, r'(?i)(\.(%s))$' % file_pattern, normalize_general),
 ]
-
 
 spam_patterns = r'(論壇文宣|_____padding_file_)'

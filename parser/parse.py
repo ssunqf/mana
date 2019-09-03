@@ -31,7 +31,7 @@ def parse(file_name: str):
     masks = np.zeros(len(file_name), dtype='bool')
     clean_name = file_name.replace('_', ' ')
     for name, val_type, pattern, norm_func in patterns:
-        matches = re.findall(pattern, clean_name, re.I)
+        matches = re.findall(pattern, clean_name)
         if len(matches) == 0:
             continue
 
@@ -70,6 +70,24 @@ def parse(file_name: str):
         set_field(infos, 'Title', str, max(phrases, key=lambda p: len(p)))
 
     return infos, [p for p in phrases if len(p) > 0]
+
+
+def extract_keywords(metainfo):
+    keywords = set()
+    infos, phrases = parse(metainfo['name'])
+
+    if 'code' in infos:
+        keywords.update([c for c in infos['code'] if c is not None])
+    keywords.update(phrases)
+
+    for file in metainfo.get('files', []):
+        if file['length'] / metainfo['length'] > 0.5:
+            infos, phrases = parse(file['path'])
+            if 'code' in infos:
+                keywords.update([c for c in infos['code'] if c is not None])
+            keywords.update(phrases)
+
+    return keywords
 
 
 if __name__ == '__main__':

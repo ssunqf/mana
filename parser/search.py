@@ -7,6 +7,7 @@ from ftfy import fixes
 from parser.lang import tokenize
 from parser.parse import parse
 from parser.patterns import spam_patterns
+from util.torrent import build_dir_tree
 
 
 def make_tsvector(metainfo):
@@ -20,20 +21,19 @@ def make_tsvector(metainfo):
     def is_filter(text):
         return re.search(spam_patterns, text) is not None
 
-    def _each(metainfo):
-        yield metainfo['name'], 'A'
-        if 'files' in metainfo:
-            total_length = sum(file['length'] for file in metainfo['files'])
-            for file in sorted(metainfo['files'], key=lambda f: f['length'], reverse=True):
-                if not is_filter(file['path']):
-                    yield file['path'], get_level(file['length']/total_length)
-
     vector = {}
     offset = 1
-    for file, level in _each(metainfo):
-        fields, phrases = parse(file)
+    if 'length' not in metainfo:
+        metainfo['length'] = sum(file['length'] for file in metainfo['files'])
+    total_length = metainfo['length']
+    for dir in build_dir_tree(metainfo).traversal():
+        if is_filter(dir.name):
+            continue
 
-        for word in tokenize(file):
+        level = get_level(dir.length / total_length)
+        fields, phrases = parse(dir.name)
+
+        for word in tokenize(dir.name):
             if len(word) > 100:
                 print(word)
             if word not in vector:
@@ -69,8 +69,12 @@ def make_tsvector(metainfo):
     return to_str(vector)
 
 
+stopwords = {'的', '了'}
+
 def make_tsquery(query: str):
     words = tokenize(fixes.fix_character_width(query))
-    return ' | '.join(words)
+    return ' | '.join([word for word in words if word not in stopwords])
 
 
+if __name__ == '__main__':
+    print(make_tsquery('|| && ----:'))

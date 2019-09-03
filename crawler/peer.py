@@ -131,7 +131,7 @@ class WirePeerClient:
 
             extended_id, extend_payload = payload[0], payload[1:]
             if extended_id == 0 and not self.ut_metadata:
-                # Extend handshake, receive ut_metadata and metadata_size
+                # Extend handshake, handle_receive ut_metadata and metadata_size
                 try:
                     self.ut_metadata = get_ut_metadata(extend_payload)
                     self.metadata_size = get_metadata_size(extend_payload)

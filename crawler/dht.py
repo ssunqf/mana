@@ -4,6 +4,7 @@ import sys
 from time import time
 import signal
 from collections import Counter
+import functools
 
 import socket
 from socket import inet_ntoa, gethostbyname
@@ -49,6 +50,7 @@ __version__ = '3.0.0'
 
 
 BOOTSTRAP_NODES = (
+    ('dht.libtorrent.org', 25401),
     ("router.bittorrent.com", 6881),
     ("dht.transmissionbt.com", 6881),
     ("router.utorrent.com", 6881),
@@ -66,9 +68,6 @@ class DHT(asyncio.DatagramProtocol):
         self.bootstrap_nodes = bootstrap_nodes
         self.running = True
         self.interval = interval
-
-        self.receive_counter = Counter()
-        self.send_counter = Counter()
 
     def stop(self):
         self.running = False
@@ -101,8 +100,6 @@ class DHT(asyncio.DatagramProtocol):
 
         try:
             msg = better_bencode.loads(data)
-
-            self.receive_counter[msg[b'y']] += len(data)
 
         except: # (better_bencode.BencodeTypeError, better_bencode.BencodeValueError):
             return
@@ -202,7 +199,7 @@ class DHT(asyncio.DatagramProtocol):
                 }
             }, addr)
 
-        if getCountry(addr[0]).country.iso_code in {'CN', 'JP', 'KR', 'HK', 'TW'}:
+        if addr[0] != '0.0.0.0' and getCountry(addr[0]).country.iso_code in {'CN', 'HK', 'TW'}:
             self.find_node(addr=addr, node_id=node_id)
 
     def ping(self, addr, node_id=None):
@@ -227,7 +224,6 @@ class DHT(asyncio.DatagramProtocol):
         try:
             msg = better_bencode.dumps(data)
             self.transport.sendto(msg, addr)
-            self.send_counter[data[b'y']] += len(msg)
         except:
           print(data)
 
@@ -236,6 +232,7 @@ class DHT(asyncio.DatagramProtocol):
             return (node_id[:-1]+self.node_id[-1:])
         return self.node_id
 
+    @functools.lru_cache(maxsize=2048)
     def find_node(self, addr, node_id=None, target=None):
         if not target:
             target = random_node_id()
@@ -271,7 +268,7 @@ class FakeDHT(DHT):
 
         if self.get_peers_counter % 10000 == 0:
             elsape = time() - self.start_time
-            print('receive')
+            print('handle_receive')
             print('\t'.join(['%s: %.3fb/s' % (k, v / elsape) for k, v in self.receive_counter.items()]))
             print('send')
             print('\t'.join(['%s: %.3fb/s' % (k, v / elsape) for k, v in self.send_counter.items()]))
