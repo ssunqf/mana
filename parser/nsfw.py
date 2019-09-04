@@ -4,7 +4,7 @@ import os
 import re
 from parser.parse import parse
 from ahocorapy.keywordtree import KeywordTree
-import itertools
+from util.code import codes
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 
@@ -61,6 +61,7 @@ def anti_fiter(text: str):
         return True
     return False
 
+jav_codes = r'\b(((%s)[\-_. ]?[0-9]{2,8}(\w|\b)?))' % ('|'.join(codes))
 
 def detect_nsfw(metainfo):
     if ('publisher' in metainfo and metainfo['publisher'] not in {'Mp4Ba'}) or 'publisher-url' in metainfo:
@@ -69,8 +70,7 @@ def detect_nsfw(metainfo):
     if nsfw_text(text) or anti_fiter(metainfo['name']):
         return True
 
-    info, _ = parse(text)
-    if 'code' in info:
+    if re.findall(jav_codes, text):
         return True
 
     return False
@@ -87,3 +87,4 @@ if __name__ == '__main__':
     print(nsfw_text('自慰扣穴高潮'))
     print(anti_fiter('苗 條 胸 小 美 女 和 男 友 高 層 公 寓 大 開 窗 邊'))
     print(anti_fiter('FakeTaxi - Sexy redhead with huge tits'))
+    print(detect_nsfw({'name': 'shkd-314'}))

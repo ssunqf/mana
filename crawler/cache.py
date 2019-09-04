@@ -33,5 +33,6 @@ class Cache:
             tq.update()
 
     def warmup(self, database: Torrent):
-        queue = asyncio.Queue(maxsize=1000)
-        self.loop.run_until_complete(asyncio.gather(database.fetch_infohash(queue), self.warmup_infohash(queue)))
+        queue = asyncio.Queue(maxsize=100000)
+        self.loop.run_until_complete(asyncio.gather(
+            database.fetch_infohash(queue), self.warmup_infohash(queue)))

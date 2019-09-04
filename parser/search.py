@@ -1,6 +1,7 @@
 #!/usr/bin/env python3.6
 # -*- coding: utf-8 -*-
 import re
+import heapq
 
 from ftfy import fixes
 
@@ -31,11 +32,10 @@ def make_tsvector(metainfo):
             continue
 
         level = get_level(dir.length / total_length)
-        fields, phrases = parse(dir.name)
 
         for word in tokenize(dir.name):
-            if len(word) > 100:
-                print(word)
+            if len(word) > 50:
+                continue
             if word not in vector:
                 vector[word] = ['%d%s' % (offset, level)]
             else:
@@ -45,25 +45,10 @@ def make_tsvector(metainfo):
 
         offset += 1
 
-        '''
-        for phrase in phrases:
-            for id, word in enumerate(tokenize(phrase)):
-                if word not in vector:
-                    vector[word] = ['%d%s' % (offset, level)]
-                else:
-                    vector[word].append('%d%s' % (offset, level))
-
-                offset += 1
-            # 分割不连续的短语
-            offset += 1
-        '''
-
     def to_str(v):
         res = []
         for token, positions in v.items():
-            if len(positions) > 200:
-                positions = sorted(positions, key=lambda x:x[-1])
-            res.append(token + ':' + ','.join(positions[:200]))
+            res.append(token + ':' + ','.join(heapq.nsmallest(5, positions, key=lambda x: x[-1])))
         return ' '.join(res)
 
     return to_str(vector)
