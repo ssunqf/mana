@@ -250,12 +250,15 @@ class Torrent:
                     break
                 batch.append(last)
 
-            if True:
+            try:
                 async with self.pool.acquire() as writer:
                     async with writer.transaction():
                         await writer.executemany(
                             '''UPDATE torrent SET keyword_ts=$2, adult=$3 WHERE infohash = $1''',
                             batch)
+            except Exception as e:
+                print(e)
+                print([i[0] for i in batch])
 
             if len(batch) < batch_size:
                 break
