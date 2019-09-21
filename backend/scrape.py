@@ -146,8 +146,9 @@ class Scraper:
             await database.fetch_infohash(self.task_queue)
 
     async def scrape(self, batch_size=BATCH_SIZE * 50):
-        count, start_time = 0, time.time()
+        total = 0
         while True:
+            start_time = time.time()
             infohashes = []
             while len(infohashes) < batch_size:
                 item = await self.task_queue.get()
@@ -167,10 +168,8 @@ class Scraper:
                 if len(cols) > 0:
                     await self.update_queue.put(max(cols, key=lambda c: c[1]))
 
-            count += len(infohashes)
-            if count % 10000 == 0:
-                logging.info(f'scrape count:{count} speed:{count/(time.time()-start_time)}it/s')
-                start_time = time.time()
+            total += len(infohashes)
+            logging.info(f'scrape total:{total} speed:{len(infohashes)/(time.time()-start_time + 0.0001)}it/s')
 
     async def update(self, database, batch_size=500):
         while True:

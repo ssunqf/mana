@@ -22,7 +22,7 @@ class Cache:
         if isinstance(data, str):
             return await self.redis_client.sadd(INFOHASH_FOUND, bytes.fromhex(data))
         else:
-            return await self.redis_client.sadd(INFOHASH_FOUND, [bytes.fromhex(item) for item in data])
+            return await self.redis_client.sadd(INFOHASH_FOUND, *[bytes.fromhex(item) for item in data])
 
     async def find_infohash(self, infohash):
         return await self.redis_client.sismember(INFOHASH_FOUND, bytes.fromhex(infohash))
