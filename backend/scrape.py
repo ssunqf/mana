@@ -162,7 +162,7 @@ class Scraper:
 
             tq.update(len(infohashes))
 
-    async def update(self, batch_size=500):
+    async def update(self, database, batch_size=500):
         while True:
             data = []
             while len(data) < batch_size:

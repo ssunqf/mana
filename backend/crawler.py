@@ -33,11 +33,13 @@ class Crawler(dht.DHT):
 
         self.db_client = database.Torrent(loop=self.loop) if db_client is None else db_client
 
-        self.cache = cache.Cache(self.loop) if cache_client is None else cache_client
+        if cache_client is None:
+            cache_client = cache.Cache(self.loop)
+            self.loop.run_until_complete(cache_client.warmup(self.db_client))
+
+        self.cache_client = cache_client
 
         self.scrape_queue = scrape_queue
-
-        self.loop.run_until_complete(self.cache.warmup(self.db_client))
 
         self.get_peer_count = 0
         self.announce_peer_count = 0
@@ -59,7 +61,7 @@ class Crawler(dht.DHT):
         if reason == 'get_peers' or peer_addr is None:
             return
 
-        if await self.cache.find_infohash(infohash):
+        if await self.cache_client.find_infohash(infohash):
             self.exist_count += 1
             return
 
@@ -76,7 +78,7 @@ class Crawler(dht.DHT):
                 await self.db_client.save_torrent([(infohash, metainfo)])
                 self.insert_count += 1
 
-                await self.cache.cache_infohash(infohash)
+                await self.cache_client.cache_infohash(infohash)
                 if self.scrape_queue:
                     await self.scrape_queue.put(infohash)
 
