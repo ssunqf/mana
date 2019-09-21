@@ -1,5 +1,6 @@
 #!/usr/bin/env python3.6
 # -*- coding: utf-8 -*-
+import logging
 import click
 
 '''
@@ -12,15 +13,11 @@ import click
 @click.option('--crawler-port', default=6881, help='crawler port')
 @click.option('--scrape-port', default=8818, help='scrape port')
 def start(warmup, crawler_port, scrape_port):
-    import logging
     import asyncio
     from backend import crawler
     from backend import scrape
     from backend import cache
     from util import database
-
-    logging.basicConfig(filename='backend.log', level=logging.INFO)
-    logging.info('Started')
 
     loop = asyncio.get_event_loop()
     database = database.Torrent(loop=loop)
@@ -33,5 +30,7 @@ def start(warmup, crawler_port, scrape_port):
 
 
 if __name__ == '__main__':
+    logging.basicConfig(filename='backend.log', level=logging.INFO)
+    logging.info('Started')
     start()
 
