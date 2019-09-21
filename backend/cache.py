@@ -19,7 +19,7 @@ class Cache:
                 aioredis.create_redis_pool('redis://localhost'))
 
     async def cache_infohash(self, data: Union[str, List[str]]):
-        if isinstance(str, data):
+        if isinstance(data, str):
             return await self.redis_client.sadd(INFOHASH_FOUND, bytes.fromhex(data))
         else:
             return await self.redis_client.sadd(INFOHASH_FOUND, [bytes.fromhex(item) for item in data])

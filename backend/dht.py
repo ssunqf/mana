@@ -104,7 +104,7 @@ class DHT(asyncio.DatagramProtocol):
         try:
             msg = better_bencode.loads(data)
         except Exception as e: # (better_bencode.BencodeTypeError, better_bencode.BencodeValueError):
-            logging.warning(e, addr, data)
+            logging.warning(f'{e}, {addr}, {data}')
             return
 
         if not isinstance(msg, dict):
@@ -113,7 +113,7 @@ class DHT(asyncio.DatagramProtocol):
         try:
             self.handle_message(msg, addr)
         except ProtocolError:
-            logging.warning('protocal error', addr, msg)
+            logging.warning(f'protocal error {addr} {msg}')
             self.send_message(
                 data={
                     b"t": msg[b"t"],
