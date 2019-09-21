@@ -2,9 +2,6 @@ import asyncio
 import logging
 import sys
 
-import aioredis
-from tqdm import tqdm
-
 from util import database
 from backend import dht, peer, cache
 from util.torrent import metainfo2json
@@ -93,14 +90,14 @@ class Crawler(dht.DHT):
     def stat(self):
         if (self.get_peer_count + 1) % 10000 == 0:
             duration = time.time() - self.start_time
-            logging.warning(f'speed(per second): get_peer={self.get_peer_count / duration}\t'
+            logging.info(f'speed(per second): get_peer={self.get_peer_count / duration}\t'
                   f'announce_peer={self.announce_peer_count / duration}\t'
                   f'exist={self.exist_count / duration}\t'
                   f'try_metainfo={self.try_metainfo_count / duration}\t'
                   f'success_metainfo={self.success_metainfo_count / duration}\t'
                   f'insert={self.insert_count / duration}\t')
 
-            logging.warning(f'fetch metainfo success ratio = {self.success_metainfo_count / self.try_metainfo_count}')
+            logging.info(f'fetch metainfo success ratio = {self.success_metainfo_count / self.try_metainfo_count}')
 
             self.get_peer_count = 0
             self.announce_peer_count = 0

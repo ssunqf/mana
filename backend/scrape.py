@@ -6,7 +6,6 @@ import time
 import itertools
 from typing import Dict
 from collections import namedtuple
-from tqdm import tqdm
 
 import logging
 import requests
@@ -36,6 +35,8 @@ class TrackerClient:
         self.timeout_handler = None
         self.num_timeout = 0
         self.results = []
+
+        self.batch_size = BATCH_SIZE
 
         self.finished = False
 
@@ -80,7 +81,7 @@ class TrackerClient:
         message = struct.pack(">QLL", self.connection_id, 2, self.transaction_id)
 
         offset = len(self.results)
-        for infohash in self.infohashes[offset:offset+BATCH_SIZE]:
+        for infohash in self.infohashes[offset:offset+self.batch_size]:
             message += bytes.fromhex(infohash)
 
         self.transport.sendto(message, (self.info.ip, self.info.port))
@@ -88,11 +89,17 @@ class TrackerClient:
 
     def scrape_response(self, message):
         self.timeout_handler.cancel()
+        batch = self.infohashes[len(self.results):len(self.results)+self.batch_size]
 
-        batch = self.infohashes[len(self.results):len(self.results)+BATCH_SIZE]
+        _batch_size = 0
         for infohash, offset in zip(batch, range(0, len(message), 12)):
             seeders, completed, leechers = struct.unpack(">LLL", message[offset:offset+12])
             self.results.append((infohash, seeders, completed, leechers))
+            _batch_size += 1
+
+        # batch_size最大的74，但实际tracker服务的配置有差异，根据返回结果调整tracke服务的batch_size上限
+        if _batch_size < self.batch_size:
+            self.batch_size = _batch_size
 
     def handle_receive(self, message):
         action, transaction_id = struct.unpack(">LL", message[0:8])
@@ -139,7 +146,7 @@ class Scraper:
             await database.fetch_infohash(self.task_queue)
 
     async def scrape(self, batch_size=BATCH_SIZE * 50):
-        tq = tqdm(desc='scrape')
+        count, start_time = 0, time.time()
         while True:
             infohashes = []
             while len(infohashes) < batch_size:
@@ -160,7 +167,10 @@ class Scraper:
                 if len(cols) > 0:
                     await self.update_queue.put(max(cols, key=lambda c: c[1]))
 
-            tq.update(len(infohashes))
+            count += len(infohashes)
+            if count % 10000 == 0:
+                logging.info(f'scrape count:{count} speed:{count/(time.time()-start_time)}it/s')
+                start_time = time.time()
 
     async def update(self, database, batch_size=500):
         while True:
@@ -178,7 +188,7 @@ class Scraper:
             lambda: self, sock=s
         )
 
-        await asyncio.gather(self.fetch(database), self.scrape(), self.update())
+        await asyncio.gather(self.fetch(database), self.scrape(), self.update(database))
 
         self.transport.close()
 
