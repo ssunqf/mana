@@ -1,3 +1,5 @@
+pympler
+sentencepiece
 requests
 tqdm==4.31.1
 better_bencode==0.2.1

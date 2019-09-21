@@ -4,6 +4,7 @@ import requests
 from collections import namedtuple
 import json
 import time
+from bs4 import BeautifulSoup
 
 
 class Tag:
@@ -31,7 +32,6 @@ class Type:
             return self.tags[item]
         else:
             raise KeyError(item)
-
 
 movie_tags = [
         Tag('热门', 'https://movie.douban.com/j/search_subjects?type=movie&tag=热门&sort=recommend&page_limit=100&page_start=0', None),
@@ -64,18 +64,28 @@ resources = {
     '动画': Type('动画', cartoon_tags)
 }
 
+url2movies = {}
+
 
 def fetch_data():
     global resources
+    movie_urls = set()
     for type in resources.values():
         for tag in type.tags:
             while True:
                 response = requests.get(tag.url)
                 if response.status_code == 200:
                     tag.data = json.loads(response.text)['subjects']
+                    movie_urls.update(m['url'] for m in tag.data)
                     break
-                print(response)
                 time.sleep(1200)
+    '''
+    for url in movie_urls:
+        movie_res = requests.get(url)
+        if movie_res.status_code == 200:
+            movie_info = BeautifulSoup(movie_res.content).select('div.subjectwrap.clearfix')
+            url2movies[url] = movie_info
+    '''
 
 fetch_data()
 

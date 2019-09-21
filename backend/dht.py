@@ -6,13 +6,14 @@ import signal
 from collections import Counter
 import functools
 
+import logging
 import socket
 from socket import inet_ntoa, gethostbyname
 from struct import unpack
 
 import better_bencode
 import random
-from crawler.ipinfo import getCountry
+from backend.ipinfo import getCountryCode
 
 
 class ServerError(Exception):
@@ -58,6 +59,8 @@ BOOTSTRAP_NODES = (
 )
 
 BOOTSTRAP_NODES = [(gethostbyname(x), y) for (x,y) in BOOTSTRAP_NODES]
+
+ALLOW_COUNTRIES = {'CN', 'HK', 'TW'}
 
 
 class DHT(asyncio.DatagramProtocol):
@@ -191,26 +194,28 @@ class DHT(asyncio.DatagramProtocol):
                 }
             }, addr)
         elif query_type == b"ping":
-            self.send_message({
-                b"t": b"tt",
-                b"y": b"r",
-                b"r": {
-                    b"id": self.fake_node_id(node_id)
-                }
-            }, addr)
+            if addr[0] not in {'0.0.0.0', '127.0.0.1'} and getCountryCode(addr[0]) in ALLOW_COUNTRIES:
+                self.send_message({
+                    b"t": b"tt",
+                    b"y": b"r",
+                    b"r": {
+                        b"id": self.fake_node_id(node_id)
+                    }
+                }, addr)
 
-        if addr[0] != '0.0.0.0' and getCountry(addr[0]).country.iso_code in {'CN', 'HK', 'TW'}:
+        if addr[0] not in {'0.0.0.0', '127.0.0.1'} and getCountryCode(addr[0]) in ALLOW_COUNTRIES:
             self.find_node(addr=addr, node_id=node_id)
 
     def ping(self, addr, node_id=None):
-        self.send_message({
-            b"y": b"q",
-            b"t": b"pg",
-            b"q": b"ping",
-            b"a": {
-                b"id": self.fake_node_id(node_id)
-            }
-        }, addr)
+        if addr[0] not in {'0.0.0.0', '127.0.0.1'} and getCountryCode(addr[0]) in ALLOW_COUNTRIES:
+            self.send_message({
+                b"y": b"q",
+                b"t": b"pg",
+                b"q": b"ping",
+                b"a": {
+                    b"id": self.fake_node_id(node_id)
+                }
+            }, addr)
 
     def connection_made(self, transport):
         self.transport = transport
@@ -225,7 +230,7 @@ class DHT(asyncio.DatagramProtocol):
             msg = better_bencode.dumps(data)
             self.transport.sendto(msg, addr)
         except:
-          print(data)
+          logging.warning(data)
 
     def fake_node_id(self, node_id=None):
         if node_id:
@@ -268,10 +273,10 @@ class FakeDHT(DHT):
 
         if self.get_peers_counter % 10000 == 0:
             elsape = time() - self.start_time
-            print('handle_receive')
-            print('\t'.join(['%s: %.3fb/s' % (k, v / elsape) for k, v in self.receive_counter.items()]))
-            print('send')
-            print('\t'.join(['%s: %.3fb/s' % (k, v / elsape) for k, v in self.send_counter.items()]))
+            logging.debug('handle_receive')
+            logging.debug('\t'.join(['%s: %.3fb/s' % (k, v / elsape) for k, v in self.receive_counter.items()]))
+            logging.debug('send')
+            logging.debug('\t'.join(['%s: %.3fb/s' % (k, v / elsape) for k, v in self.send_counter.items()]))
 
             self.send_counter = Counter()
             self.receive_counter = Counter()

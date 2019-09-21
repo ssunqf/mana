@@ -8,7 +8,7 @@ from typing import List
 import subprocess
 import asyncio
 import aioredis
-from crawler.cache import Cache
+from backend.cache import Cache
 from urllib import request
 from urllib.parse import quote
 from util.database import Torrent

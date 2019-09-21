@@ -16,7 +16,7 @@ class Torrent:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.conn_pool.closeall()
 
-    def search(self, query, offset=0, limit=20, **kwargs):
+    def search(self, query, offset=0, limit=20, max_size=1000, **kwargs):
 
         conn = self.conn_pool.getconn()
 
@@ -27,18 +27,19 @@ class Torrent:
             query = make_tsquery(query)
             conditions = ' and '.join([('%s=%d' if isinstance(v, int) else '%s=\'%s\'') % (k, v)
                                        for k, v in kwargs.items()])
-            cmd = '''
+            cmd = f'''
                 SELECT *, COUNT(*) OVER() AS total
                 FROM (
-                    SELECT *, keyword_ts <=> \'%s\'::tsquery AS rank
+                    SELECT *, keyword_ts <=> \'{query}\'::tsquery AS rank
                     FROM torrent
-                    WHERE keyword_ts @@ \'%s\'::tsquery %s
-                    ORDER BY keyword_ts <=> \'%s\'::tsquery
-                    LIMIT 1000
+                    WHERE keyword_ts @@ \'{query}\'::tsquery {'and ' + conditions if len(kwargs) > 0 else ''}
+                    ORDER BY keyword_ts <=> \'{query}\'::tsquery
+                    LIMIT {max_size}
                 ) AS matched
+                WHERE rank < 5
                 ORDER BY rank, seeders DESC
-                LIMIT %d OFFSET %d
-                ''' % (query, query, 'and ' + conditions if len(kwargs) > 0 else '', query, limit, offset)
+                LIMIT {limit} OFFSET {offset}
+                '''
             cursor.execute(cmd)
 
             records = cursor.fetchall()

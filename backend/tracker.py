@@ -6,7 +6,7 @@ import subprocess
 import os
 from tqdm import tqdm
 import mmap
-from crawler.cache import Cache
+from backend.cache import Cache
 from urllib.parse import quote
 from util.database import Torrent
 from util.torrent import metainfo2json

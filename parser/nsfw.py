@@ -64,8 +64,6 @@ def anti_fiter(text: str):
 jav_codes = r'\b(((%s)[\-_. ]?[0-9]{2,8}(\w|\b)?))' % ('|'.join(codes))
 
 def detect_nsfw(metainfo):
-    if ('publisher' in metainfo and metainfo['publisher'] not in {'Mp4Ba'}) or 'publisher-url' in metainfo:
-        return True
     text = '\n'.join([metainfo['name']] + [file['path'] for file in metainfo.get('files', [])])
     if nsfw_text(text) or anti_fiter(metainfo['name']):
         return True
@@ -88,3 +86,4 @@ if __name__ == '__main__':
     print(anti_fiter('苗 條 胸 小 美 女 和 男 友 高 層 公 寓 大 開 窗 邊'))
     print(anti_fiter('FakeTaxi - Sexy redhead with huge tits'))
     print(detect_nsfw({'name': 'shkd-314'}))
+    print(detect_nsfw({"name": "寄生虫.Parasite.2019.HD1080P.X264.AAC.Korean.CHS.mp4", "length": 2809041007}))

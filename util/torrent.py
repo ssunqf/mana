@@ -3,6 +3,8 @@
 from pprint import pprint
 import logging
 import ftfy
+import re
+from urllib import parse
 import chardet
 from collections import namedtuple
 from better_bencode import loads as bdecode
@@ -10,6 +12,16 @@ from better_bencode import loads as bdecode
 
 def to_str(bytes):
     text, encoding = ftfy.guess_bytes(bytes)
+    text = parse.unquote(text)
+    text = re.sub('â€“', '-', text)
+    text = re.sub('â”€', '─', text)
+    text = re.sub('â€¢', ' • ', text)
+    text = re.sub('â˜†', '☆', text)
+    text = re.sub('â€™', '’', text)
+    text = re.sub('â€Ž', '', text)
+    text = re.sub('â™ª', '♪', text)
+    text = re.sub('â€ª', '', text)
+    text = re.sub('Ñ€', 'p', text)
     return text
 
 
@@ -74,6 +86,9 @@ def metainfo2json(metadata: bytes):
                 else:
                     path = '/'.join(str(sub) if isinstance(sub, int) else to_str(sub)
                                     for sub in file[b'path'])
+
+                if '_____padding_file' in path or path.startswith('論壇文宣') or path.startswith('宣传文件/') or path.startswith('宣传/'):
+                    continue
 
                 files.append({'path': path, 'length': file[b'length']})
 

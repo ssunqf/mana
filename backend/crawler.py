@@ -6,7 +6,7 @@ import aioredis
 from tqdm import tqdm
 
 from util import database
-from crawler import dht, peer, cache
+from backend import dht, peer, cache
 from util.torrent import metainfo2json
 
 try:
@@ -26,14 +26,16 @@ PEER_STAT = 'PEER_STAT'
 
 
 class Crawler(dht.DHT):
-    def __init__(self, loop=None, active_tcp_limit = 500):
+    def __init__(self, db_client=None, cache_client=None, scrape_queue=None, loop=None, active_tcp_limit = 500):
         super().__init__(loop)
         self.active_tcp_limit = asyncio.Semaphore(active_tcp_limit)
         self.threshold = active_tcp_limit
 
-        self.db_client = database.Torrent(loop=self.loop)
+        self.db_client = database.Torrent(loop=self.loop) if db_client is None else db_client
 
-        self.cache = cache.Cache(self.loop)
+        self.cache = cache.Cache(self.loop) if cache_client is None else cache_client
+
+        self.scrape_queue = scrape_queue
 
         self.loop.run_until_complete(self.cache.warmup(self.db_client))
 
@@ -75,6 +77,8 @@ class Crawler(dht.DHT):
                 self.insert_count += 1
 
                 await self.cache.cache_infohash(infohash)
+                if self.scrape_queue:
+                    await self.scrape_queue.put(infohash)
 
         except (ConnectionRefusedError, ConnectionResetError,
                 asyncio.streams.IncompleteReadError, asyncio.TimeoutError, OSError) as e:

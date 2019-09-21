@@ -138,4 +138,4 @@ patterns = [
     ('suffix', str, r'(?i)(\.(%s))$' % file_pattern, normalize_general),
 ]
 
-spam_patterns = r'(論壇文宣|_____padding_file_)'
+spam_patterns = r'(論壇文宣/|_____padding_file_|宣传(文本)?/)'

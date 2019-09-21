@@ -8,6 +8,7 @@ from typing import Dict
 from collections import namedtuple
 from tqdm import tqdm
 
+import logging
 import requests
 from util.database import Torrent
 
@@ -34,10 +35,11 @@ class TrackerClient:
         self.loop = loop
         self.timeout_handler = None
         self.num_timeout = 0
-        self.offset = 0
         self.results = []
 
         self.finished = False
+
+        self.connect_request()
 
     def need_connect(self):
         return self.connection_id is None or time.time() - self.connection_time >= 55
@@ -67,9 +69,7 @@ class TrackerClient:
         self.timeout_handler.cancel()
 
         assert len(message) == 8
-        connection_id = struct.unpack(">Q", message)[0]
-
-        self.connection_id = connection_id
+        self.connection_id = struct.unpack(">Q", message)[0]
         self.connection_time = time.time()
 
     def scrape_request(self):
@@ -89,13 +89,10 @@ class TrackerClient:
     def scrape_response(self, message):
         self.timeout_handler.cancel()
 
-        assert len(message) % 12 == 0
-        batch = self.infohashes[self.offset:self.offset+BATCH_SIZE]
+        batch = self.infohashes[len(self.results):len(self.results)+BATCH_SIZE]
         for infohash, offset in zip(batch, range(0, len(message), 12)):
             seeders, completed, leechers = struct.unpack(">LLL", message[offset:offset+12])
             self.results.append((infohash, seeders, completed, leechers))
-
-        self.offset += len(batch)
 
     def handle_receive(self, message):
         action, transaction_id = struct.unpack(">LL", message[0:8])
@@ -109,7 +106,7 @@ class TrackerClient:
             else:
                 self.scrape_request()
         elif action == ERROR:
-            print('handle_receive error message', message[8:])
+            logging.error('handle_receive error message', message[8:])
 
 
 class Scraper:
@@ -119,6 +116,8 @@ class Scraper:
         self.transport = None
 
         self.trackers = {}
+        self.task_queue = asyncio.Queue(maxsize=5000)
+        self.update_queue = asyncio.Queue(maxsize=5000)
 
     def connection_made(self, transport):
         self.transport = transport
@@ -127,37 +126,48 @@ class Scraper:
         self.trackers[addr[0]].handle_receive(data)
 
     def error_received(self, exc: OSError):
-        print(exc)
+        logging.error(exc)
 
     def connection_lost(self, exc: OSError):
-        print(exc)
+        logging.error(exc)
 
-    async def scrape(self, queue: asyncio.Queue, batch_size=1):
+    async def put(self, infohash):
+        await self.task_queue.put(infohash)
+
+    async def fetch(self, database):
+        while True:
+            await database.fetch_infohash(self.task_queue)
+
+    async def scrape(self, batch_size=BATCH_SIZE * 50):
         tq = tqdm(desc='scrape')
         while True:
             infohashes = []
             while len(infohashes) < batch_size:
-                item = await queue.get()
+                item = await self.task_queue.get()
                 if item is None:
                     break
                 infohashes.append(item)
 
-            self.trackers = {ip: TrackerClient(info, self.transport, infohashes, self.loop) for ip, info in self.clients.items() }
+            self.trackers = {
+                ip: TrackerClient(info, self.transport, infohashes, self.loop) for ip, info in self.clients.items()
+            }
 
             while sum(tracker.finished for tracker in self.trackers.values()) < len(self.trackers):
                 await asyncio.sleep(2)
 
-            results = []
             for cols in itertools.zip_longest(*[tracker.results for tracker in self.trackers.values()]):
                 cols = [col for col in cols if col is not None]
                 if len(cols) > 0:
-                    results.append(max(cols, key=lambda c: c[1]))
-
-            await database.update_status(results)
+                    await self.update_queue.put(max(cols, key=lambda c: c[1]))
 
             tq.update(len(infohashes))
-            if len(infohashes) < batch_size:
-                break
+
+    async def update(self, batch_size=500):
+        while True:
+            data = []
+            while len(data) < batch_size:
+                data.append(await self.update_queue.get())
+            await database.update_status(data)
 
     async def run(self, database: Torrent, port=8818):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -168,8 +178,7 @@ class Scraper:
             lambda: self, sock=s
         )
 
-        queue = asyncio.Queue(maxsize=50000)
-        await asyncio.gather(database.fetch_infohash(queue), self.scrape(queue))
+        await asyncio.gather(self.fetch(database), self.scrape(), self.update())
 
         self.transport.close()
 
@@ -191,7 +200,7 @@ def get_clients():
 
         return trackers
     else:
-        print('''can't get tracker list''')
+        logging.error('''can't get tracker list''')
         raise RuntimeError()
 
 
@@ -200,5 +209,4 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     database = Torrent()
     scraper = Scraper(trackers, loop)
-    while True:
-        loop.run_until_complete(scraper.run(database, 8818))
+    loop.run_until_complete(scraper.run(database, 8818))

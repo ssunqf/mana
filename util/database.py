@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import re
 from typing import List, Tuple, Dict
 from datetime import datetime
 from tqdm import tqdm
@@ -69,43 +70,32 @@ class Torrent:
         except Exception as e:
             logging.warning(str(e))
 
-    async def update_status(self, data: List[(Tuple[str, int, int, int])], update_time=datetime.utcnow()):
+    async def update_status(self, data: List[(Tuple[str, int, int, int])]):
         try:
             async with self.pool.acquire() as conn:
                 async with conn.transaction():
+                    now = datetime.utcnow()
                     await conn.executemany(
                         '''
                         UPDATE torrent
                         SET seeders=$2, completed=$3, leechers=$4, update_time=$5
                         WHERE infohash = $1
                         ''',
-                        [(infohash.upper(), seeders, completed, leechers, update_time)
+                        [(infohash.upper(), seeders, completed, leechers, now)
                          for infohash, seeders, completed, leechers, in data]
                     )
         except Exception as e:
             logging.warning(str(e))
 
     async def fetch_infohash(self, queue: asyncio.Queue):
-        limit = 1000
-        offset = 0
-        while True:
+        try:
             async with self.pool.acquire() as conn:
                 async with conn.transaction():
-                    batch = [row['infohash'] for row in await conn.fetch(
-                        f'''
-                        SELECT infohash FROM torrent
-                        ORDER BY infohash
-                        LIMIT {limit} OFFSET {offset}
-                        ''')]
-
-            for infohash in batch:
-                await queue.put(infohash)
-
-            offset += len(batch)
-
-            if len(batch) < limit:
-                await queue.put(None)
-                break
+                    async for row in conn.cursor('''SELECT infohash FROM torrent'''):
+                        await queue.put(row['infohash'])
+            await queue.put(None)
+        except Exception as e:
+            print(e)
 
     async def foreach(self, table_name, column_name, alias_name):
         async with self.pool.acquire() as conn:
@@ -195,7 +185,8 @@ class Torrent:
                                 ORDER BY infohash
                                 LIMIT 200 OFFSET {tq.n}
                             '''
-                        buffer = [(row['infohash'], make_tsvector(row['metainfo']), detect_nsfw(row['metainfo'])) for row in await reader.fetch(cmd)]
+                        buffer = [(row['infohash'], make_tsvector(row['metainfo']), detect_nsfw(row['metainfo']))
+                                  for row in await reader.fetch(cmd)]
 
                 if len(buffer) == 0:
                     break
@@ -222,11 +213,14 @@ class Torrent:
                     )
 
                     cmd = f'''
-                        SELECT infohash, metainfo FROM torrent
+                        SELECT infohash, metainfo
+                        FROM torrent
+                        WHERE jsonb_array_length(metainfo->'files') > 1 and metainfo::text ~ '(論壇文宣|宣传(文件)?)/'
                         '''
 
-                    async for row in reader.cursor(cmd):
+                    async for row in reader.cursor(cmd, prefetch=50):
                         await queue.put(row)
+
             await queue.put(None)
         except Exception as e:
             raise e
@@ -238,7 +232,14 @@ class Torrent:
             if item is None:
                 await writeq.put(None)
                 break
-            await writeq.put((item['infohash'], make_tsvector(item['metainfo']), detect_nsfw(item['metainfo'])))
+
+            metainfo = item['metainfo']
+
+            metainfo['files'] = [file for file in metainfo['files']
+                                 if not re.match(r'(論壇文宣/|_____padding_file_|宣传(文本)?/)', file['path'])]
+
+            await writeq.put((item['infohash'], metainfo, make_tsvector(metainfo)))
+            del item
             tq.update()
 
     async def output(self, writeq: asyncio.Queue, batch_size=50):
@@ -253,27 +254,37 @@ class Torrent:
             try:
                 async with self.pool.acquire() as writer:
                     async with writer.transaction():
+                        await writer.set_type_codec(
+                            'jsonb',
+                            encoder=lambda d: json.dumps(d, ensure_ascii=False),
+                            decoder=json.loads,
+                            schema='pg_catalog'
+                        )
                         await writer.executemany(
-                            '''UPDATE torrent SET keyword_ts=$2, adult=$3 WHERE infohash = $1''',
+                            '''UPDATE torrent SET metainfo=$2, keyword_ts=$3 WHERE infohash = $1''',
                             batch)
             except Exception as e:
                 print(e)
                 print([i[0] for i in batch])
 
             if len(batch) < batch_size:
+                from pympler import muppy, summary
+                all_objects = muppy.get_objects()
+                summary.print_(summary.summarize(all_objects))
                 break
 
             del batch
 
     async def update_all(self):
-        readq, writeq = asyncio.Queue(maxsize=50000), asyncio.Queue(maxsize=50000)
+        readq, writeq = asyncio.Queue(maxsize=1000), asyncio.Queue(maxsize=1000)
         await asyncio.gather(self.fetch(readq), self.consumer(readq, writeq), self.output(writeq))
 
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
-    db_client = Torrent(loop=loop)
+    db_client = Torrent('207.148.124.42', loop=loop)
     loop.run_until_complete(db_client.update_all())
+    # loop.run_until_complete(db_client.word_count('char.dic'))
 
 
 

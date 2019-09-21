@@ -23,37 +23,6 @@ db_client = Torrent(host='207.148.124.42')
 
 app = Flask(__name__)
 
-'''
-SELF = "'self'"
-talisman = Talisman(
-    app,
-    content_security_policy={
-        'default-src': SELF,
-        'img-src': [
-            SELF,
-            '*.doubanio.com',
-            'img.icons8.com'
-        ],
-        'script-src': [
-            SELF,
-            'cdn.jsdelivr.net',
-        ],
-        'style-src': [
-            SELF,
-            'www.jqueryscript.net',
-            'fonts.googleapis.com',
-            'netdna.bootstrapcdn.com'
-        ],
-    },
-    content_security_policy_nonce_in=['script-src'],
-    feature_policy={
-        'geolocation': '\'none\'',
-    }
-)
-'''
-
-# Talisman(app, content_security_policy=GOOGLE_CSP_POLICY)
-
 app.config.from_object(Config)
 
 scheduler = APScheduler()
@@ -81,7 +50,7 @@ render_kwargs = { 'import' : importlib.import_module , 'resources': resources}
 def index():
     searchForm = SearchForm()
     if searchForm.validate_on_submit():
-        return redirect('/search?query=%s&category=%s' % (searchForm.query.data, searchForm.category.data))
+        return redirect('/search?query=%s&category=%s&limit=20' % (searchForm.query.data, searchForm.category.data))
     return render_template('index.html', form=searchForm, **render_kwargs)
 
 
@@ -94,7 +63,7 @@ def resource():
         tag = resources[type][0].name
     searchForm = SearchForm()
     if searchForm.validate_on_submit():
-        return redirect('/search?query=%s&category=%s' % (searchForm.query.data, searchForm.category.data))
+        return redirect('/search?query=%s&category=%s&limit=20' % (searchForm.query.data, searchForm.category.data))
 
     data = resources[type][tag].data
     return render_template('resource.html', form=searchForm, type=type, tag=tag, page=page, data=data, **render_kwargs)
@@ -117,7 +86,7 @@ def search():
     if searchForm.validate_on_submit():
         query = request.form.get('query')
         category = request.form.get('category')
-        return redirect('/search?query=%s&category=%s' % (query, category))
+        return redirect('/search?query=%s&category=%s&limit=20' % (query, category))
 
     kwargs = {}
     if category and len(category) > 0:
@@ -147,7 +116,7 @@ def magnet():
     if searchForm.validate_on_submit():
         query = request.form.get('query')
         category = request.form.get('category')
-        return redirect('/search?query=%s&category=%s' % (query, category))
+        return redirect('/search?query=%s&category=%s&limit=20' % (query, category))
 
     if not infohash or len(infohash) != 40:
         flash('infohash参数错误', category='error')

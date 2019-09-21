@@ -13,11 +13,11 @@ from util.torrent import build_dir_tree
 
 def make_tsvector(metainfo):
     def get_level(ratio):
-        levels = [(0.8, 'A'), (0.5, 'B'), (0.3, 'C'), (0, 'D')]
+        levels = [(0.8, 'A'), (0.5, 'B'), (0.3, 'C'), (0.00001, 'D')]
         for thres, level in levels:
             if ratio >= thres:
                 return level
-        return 'D'
+        return None
 
     def is_filter(text):
         return re.search(spam_patterns, text) is not None
@@ -31,7 +31,9 @@ def make_tsvector(metainfo):
         if is_filter(dir.name):
             continue
 
-        level = get_level(dir.length / total_length)
+        level = get_level(dir.length / total_length + 0.0001)
+        if level is None:
+            continue
 
         for word in tokenize(dir.name):
             if len(word) > 50:
@@ -42,7 +44,6 @@ def make_tsvector(metainfo):
                 vector[word].append('%d%s' % (offset, level))
 
             offset += 1
-
         offset += 1
 
     def to_str(v):
@@ -54,11 +55,11 @@ def make_tsvector(metainfo):
     return to_str(vector)
 
 
-stopwords = {'的', '了'}
+stopwords = {'的', '了', '之', '与', '和'}
 
 def make_tsquery(query: str):
     words = tokenize(fixes.fix_character_width(query))
-    return ' | '.join([word for word in words if word not in stopwords])
+    return ' & '.join([word for word in words if word not in stopwords and word.isalnum()])
 
 
 if __name__ == '__main__':
