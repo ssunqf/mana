@@ -124,9 +124,9 @@ INFOHASH_FOUND = 'INFOHASH_FOUND'
 torrent_dir = './torrents'
 os.makedirs(torrent_dir, exist_ok=True)
 
-best_trackers = 'https://github.com/ngosang/trackerslist/raw/master/trackers_best_ip.txt'
+trackers_best = 'https://github.com/ngosang/trackerslist/raw/master/trackers_best_ip.txt'
 
-tmp_tracker_file = download(best_trackers, '/tmp/trackers_best.txt')
+tmp_tracker_file = download(trackers_best, '/tmp/trackers_best.txt')
 
 with open(tmp_tracker_file) as input:
     urls = set([line.strip() for line in input.readlines() if len(line.strip()) > 0] + \

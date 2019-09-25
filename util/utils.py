@@ -27,21 +27,15 @@ def format_size(size):
         return '%d B' % size
 
 
-best_trackers = []
-
-def fetch_trackers():
-    global  best_trackers
+def fetch_trackers(cache):
     best_tracker_url = 'https://github.com/ngosang/trackerslist/raw/master/trackers_best.txt'
-
     for _ in range(10):
         res = requests.get(best_tracker_url)
         if res.status_code == 200:
             best_trackers = ['tr=' + t for t in res.text.split()]
+            cache.set('best_trackers', best_trackers)
             break
-
         time.sleep(120)
-
-fetch_trackers()
 
 if __name__ == '__main__':
     print(format_size(1014766768))

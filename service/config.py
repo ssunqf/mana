@@ -11,9 +11,6 @@ class Config(object):
 
     SEND_FILE_MAX_AGE_DEFAULT = timedelta(seconds=1)
 
-    CACHE_TYPE = 'simple'
-    CACHE_DEFAULT_TIMEOUT = 300
-
-    # ...
-    SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://localhost/btsearch?user=sunqf&password=840422'
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    CACHE_TYPE = 'redis'
+    CACHE_DEFAULT_TIMEOUT = 240 * 60 * 60
+    CACHE_KEY_PREFIX = 'cilichong'

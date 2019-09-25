@@ -1,6 +1,7 @@
 #!/usr/bin/env python3.6
 # -*- coding: utf-8 -*-
 import importlib
+from datetime import datetime
 
 from flask import Flask, request, render_template, flash, redirect
 from flask_apscheduler import APScheduler
@@ -15,35 +16,34 @@ from parser.parse import extract_keywords
 from service.config import Config
 from util.categories import categories
 from util.database2 import Torrent
-from util.resource import resources, fetch_data
+from util.douban import KEY_TEMPLATE, resources, fetch_data
 from util.torrent import build_dir_tree
-from util.utils import best_trackers, fetch_trackers
-
-db_client = Torrent(host='207.148.124.42')
+from util.utils import fetch_trackers
 
 app = Flask(__name__)
-
 app.config.from_object(Config)
+
+db_client = Torrent()
+cache = Cache(app)
+bootstrap = Bootstrap(app)
 
 scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
-
-bootstrap = Bootstrap(app)
 
 
 class SearchForm(FlaskForm):
     query = StringField('Query',
                         validators=[DataRequired(message='输入关键词。'),
                                     Length(1, 100, message='长度请限制在100字符内。')])
-    category = SelectField('Category', choices= [('', '全部')] + categories)
+    category = SelectField('Category', choices=[('', '全部')] + categories)
     submit = SubmitField('GO')
 
 
-scheduler.add_job(id='fetch trackers', func=fetch_trackers, trigger='cron', day='*', jitter=60 * 60)
-scheduler.add_job(id='fetch douban', func=fetch_data, trigger='cron', day='*', jitter=60 * 60)
+scheduler.add_job(id='fetch trackers', func=lambda: fetch_trackers(cache), trigger='cron', day='*', jitter=60 * 60, next_run_time=datetime.now())
+scheduler.add_job(id='fetch douban', func=lambda: fetch_data(cache), trigger='cron', day='*', jitter=60 * 60, next_run_time=datetime.now())
 
-render_kwargs = { 'import' : importlib.import_module , 'resources': resources}
+render_kwargs = {'import': importlib.import_module, 'resources': resources}
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -65,7 +65,7 @@ def resource():
     if searchForm.validate_on_submit():
         return redirect('/search?query=%s&category=%s&limit=20' % (searchForm.query.data, searchForm.category.data))
 
-    data = resources[type][tag].data
+    data = cache.get(KEY_TEMPLATE % (type, tag))
     return render_template('resource.html', form=searchForm, type=type, tag=tag, page=page, data=data, **render_kwargs)
 
 
@@ -90,7 +90,7 @@ def search():
 
     kwargs = {}
     if category and len(category) > 0:
-        kwargs['category']=category
+        kwargs['category'] = category
 
     if adult and len(adult):
         kwargs['adult'] = adult
@@ -133,7 +133,7 @@ def magnet():
 
     data['keywords'] = extract_keywords(data['metainfo'])
 
-    magnet_url = '&'.join(['magnet:?xt=urn:btih:' + data['infohash']] + best_trackers)
+    magnet_url = '&'.join(['magnet:?xt=urn:btih:' + data['infohash']] + cache.get('best_trackers'))
 
     return render_template('magnet.html', form=searchForm, data=data, magnet=magnet_url, **render_kwargs)
 

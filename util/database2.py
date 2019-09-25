@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.6
 # -*- coding: utf-8 -*-
-
+import logging
 import psycopg2
 from psycopg2 import pool
 from parser.search import make_tsvector, make_tsquery
@@ -45,6 +45,7 @@ class Torrent:
             records = cursor.fetchall()
             return self.friendly(cursor, records)
         except Exception as e:
+            logging.warning(e)
             raise e
         finally:
             self.conn_pool.putconn(conn)
@@ -76,7 +77,6 @@ class Torrent:
 
         try:
             for keyword in keywords:
-                print(keyword)
                 cursor = conn.cursor()
                 cursor.execute(
                     '''

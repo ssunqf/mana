@@ -95,7 +95,7 @@ class Torrent:
                         await queue.put(row['infohash'])
             await queue.put(None)
         except Exception as e:
-            print(e)
+            logging.warning(e)
 
     async def foreach(self, table_name, column_name, alias_name):
         async with self.pool.acquire() as conn:
@@ -264,14 +264,8 @@ class Torrent:
                             '''UPDATE torrent SET metainfo=$2, keyword_ts=$3 WHERE infohash = $1''',
                             batch)
             except Exception as e:
-                print(e)
-                print([i[0] for i in batch])
-
-            if len(batch) < batch_size:
-                from pympler import muppy, summary
-                all_objects = muppy.get_objects()
-                summary.print_(summary.summarize(all_objects))
-                break
+                logging.warning(e)
+                logging.warning([i[0] for i in batch])
 
             del batch
 

@@ -8,8 +8,8 @@ sudo add-apt-repository ppa:certbot/certbot
 sudo apt-get update
 
 # Install Certbot
-sudo apt-get install certbot python-certbot-nginx
+sudo apt-get install certbot python3-certbot-nginx
 
-sudo certbot --nginx
+sudo certbot --nginx -d cilichong.xyz -d www.cilichong.xyz
 
-sudo ufw allow https
+sudo ufw delete allow 'Nginx HTTP'

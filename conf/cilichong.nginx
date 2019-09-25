@@ -1,0 +1,9 @@
+server {
+    listen 80;
+    server_name cilichong.xyz www.cilichong.xyz;
+
+    location / {
+        include proxy_params;
+        proxy_pass http://unix:/home/sunqf/mana/cilichong.sock;
+    }
+}

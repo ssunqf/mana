@@ -1,0 +1,19 @@
+[Unit]
+Description=gunicorn daemon
+Requires=gunicorn.socket
+After=network.target
+
+[Service]
+PIDFile=/home/sunqf/mana/app.pid
+User=sunqf
+Group=sunqf
+RuntimeDirectory=gunicorn
+WorkingDirectory=/home/sunqf/mana
+ExecStart=gunicorn3 --pid /home/sunqf/mana/cilichong.pid --workers=4  \
+          --bind unix:/home/sunqf/mana/cilichong.socket service.routes:app --preload
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s TERM $MAINPID
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

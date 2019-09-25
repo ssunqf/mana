@@ -3,12 +3,6 @@
 {% set builtins = import('builtins') %}
 
 {% block content %}
-  {% set data_size = builtins.len(data) %}
-  {% set page_size = 20 %}
-  {% set page_num = data_size // page_size %}
-  {% set prev_page = page - 1 if page > 1 else page_num %}
-  {% set next_page = page + 1 if page < 5 else 1 %}
-
   <ul class="nav nav-tabs mb-3">
     {% for t in resources[type] %}
       <li class="nav-item">
@@ -17,32 +11,21 @@
         </a>
       </li>
     {% endfor %}
-    <li class="col-auto ml-auto mt-auto">
-      <div class="row">
-        <a  href="{{ '/resource?type=%s&tag=%s&page=%d' % (type, tag, prev_page) }}">«</a>
-        <span> {{ '%d/%d' % (page, page_num) }} </span>
-        <a href="{{ '/resource?type=%s&tag=%s&page=%d' % (type, tag, next_page) }}">»</a>
-      </div>
-    </li>
   </ul>
 
-  {% for start in range(page * 20 - 20, page * 20, 5) %}
-  <div class="card-deck mb-3">
-    {% for item in data[start:start+5] %}
+  <div class="container">
+    <div class="row">
+    {% for item in data %}
       {% set dest_url = '/search?query=%s&category=video&adult=FALSE&limit=20' % item['title'] %}
-      <div class="card bg-light" href="{{ item['url'] }}">
-        <a href="{{ dest_url }}">
-          <img class="card-img-top" src="{{ item['cover'] }}" alt="Card image" referrerpolicy ="never">
-        </a>
-        <div class="card-body text-center">
-          <a href="{{ dest_url }}" class="card-link">
-            <p class="card-text">{{ item['title'] }} <strong>{{ item['rate'] }}</strong></p>
-          </a>
-          <a href="{{ item['url'] }}" class="card-link">豆瓣</a>
-          <a href="{{ dest_url }}" class="card-link">磁力</a>
+        <div class="col-sm-6">
+          <a href="{{ dest_url }}"><font size="2">{{ item['title'] }}</font></a>
+          &nbsp&nbsp&nbsp
+          <span>
+            <img class="rounded" src="https://img3.doubanio.com/favicon.ico" width="15" height="15">
+            <a href="{{ item['url'] }}"><font size="2"><strong>{{ item['rate'] }}</strong></font></a>
+          </span>
         </div>
-      </div>
     {% endfor %}
+    </div>
   </div>
-  {% endfor %}
 {% endblock %}
