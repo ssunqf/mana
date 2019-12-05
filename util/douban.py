@@ -67,12 +67,21 @@ DOUBAN_KEY = 'DOUBAN'
 
 KEY_TEMPLATE = 'DOUBAN_%s_%s'
 
+headers = {
+    'Connection': 'keep-alive',
+    'Cache-Control': 'max-age=0',
+    'Upgrade-Insecure-Requests': '1',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.84 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Encoding': 'gzip, deflate',
+    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+}
 
 def fetch_data(cache):
     for type in resources.values():
         for tag in type.tags:
             while True:
-                response = requests.get(tag.url)
+                response = requests.get(tag.url, headers=headers)
                 if response.status_code == 200:
                     tag.data = json.loads(response.text)['subjects']
                     cache.set(KEY_TEMPLATE % (type.name, tag.name), tag.data)

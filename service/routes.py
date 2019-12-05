@@ -3,7 +3,7 @@
 import importlib
 from datetime import datetime
 
-from flask import Flask, request, render_template, flash, redirect
+from flask import Flask, request, render_template, flash, redirect, url_for
 from flask_apscheduler import APScheduler
 from flask_bootstrap import Bootstrap
 from flask_caching import Cache
@@ -53,6 +53,9 @@ def index():
         return redirect('/search?query=%s&category=%s&limit=20' % (searchForm.query.data, searchForm.category.data))
     return render_template('index.html', form=searchForm, **render_kwargs)
 
+@app.route('/BingSiteAuth.xml')
+def bing_auth():
+    return redirect(url_for('static', filename='BingSiteAuth.xml'))
 
 @app.route('/resource', methods=['GET', 'POST'])
 def resource():
@@ -139,4 +142,4 @@ def magnet():
 
 
 if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+    app.run(host="192.168.0.8", port=5000, debug=True)

@@ -76,6 +76,8 @@ class Torrent:
         except Exception as e:
             logging.warning(e)
 
+        return []
+
     def get_by_infohash(self, infohash):
         try:
             with Connection(self.conn_pool) as conn:
