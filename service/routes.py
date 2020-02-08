@@ -53,9 +53,6 @@ def index():
         return redirect('/search?query=%s&category=%s&limit=20' % (searchForm.query.data, searchForm.category.data))
     return render_template('index.html', form=searchForm, **render_kwargs)
 
-@app.route('/BingSiteAuth.xml')
-def bing_auth():
-    return redirect(url_for('static', filename='BingSiteAuth.xml'))
 
 @app.route('/resource', methods=['GET', 'POST'])
 def resource():
@@ -128,7 +125,7 @@ def magnet():
 
     data = db_client.get_by_infohash(infohash)
     if len(data) == 0:
-        return render_template('not_exist.html', form=searchForm, infohash=infohash)
+        return render_template('not_exist.html', form=searchForm, infohash=infohash, **render_kwargs)
 
     data = data[0]
 
@@ -136,10 +133,13 @@ def magnet():
 
     data['keywords'] = extract_keywords(data['metainfo'])
 
-    magnet_url = '&'.join(['magnet:?xt=urn:btih:' + data['infohash']] + cache.get('best_trackers'))
+    trackers = cache.get('best_trackers')
+    if trackers is None:
+        trackers = []
+    magnet_url = '&'.join(['magnet:?xt=urn:btih:' + data['infohash']] + trackers)
 
     return render_template('magnet.html', form=searchForm, data=data, magnet=magnet_url, **render_kwargs)
 
 
 if __name__ == '__main__':
-    app.run(host="192.168.0.8", port=5000, debug=True)
+    app.run(port=5000, debug=True)

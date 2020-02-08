@@ -1,6 +1,9 @@
 {% extends 'base.html' %}
 {% set humanfriendly = import('util.utils') %}
 {% set builtins = import('builtins') %}
+{% block require %}
+  <link href="{{ url_for('static', filename='filetree.css') }}" rel="stylesheet" type="text/css">
+{% endblock %}
 
 {% block content %}
   <div class="card border-light mb-4">
@@ -26,9 +29,12 @@
       </div-->
     </div>
     <div class="card-footer">
-      <a href="{{ magnet }}">
-        <i class="fa fa-magnet fa-fw" aria-hidden="true"></i>磁力链接
-      </a>
+      <button type="button" class="btn btn-info" onclick="window.location.href = '{{magnet}}';" title="下载工具已关联浏览器，请点这里">
+        <span>打开磁力链</span>
+      </button>
+      <button type="button" class="btn btn-info" data-clipboard-text="{{magnet}}" title="复制到下载工具，请点这里">
+        <span>复制磁力链</span>
+      </button>
     </div>
   </div>
     <!-- div>
@@ -59,4 +65,16 @@
 {% block script %}
   <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
   <script src="{{ url_for('static', filename='filetree.js') }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js"></script>
+  <script>
+    var clipboard = new ClipboardJS('.btn');
+
+    clipboard.on('success', function(e) {
+        console.log(e);
+    });
+
+    clipboard.on('error', function(e) {
+        console.log(e);
+    });
+  </script>
 {% endblock %}
