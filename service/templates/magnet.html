@@ -1,6 +1,15 @@
 {% extends 'base.html' %}
 {% set humanfriendly = import('util.utils') %}
 {% set builtins = import('builtins') %}
+
+{% block title %}
+  <title>{{ data['metainfo']['name'] }} - 磁力虫</title>
+{% endblock %}
+
+{% block description %}
+  <meta name="description" content="{{ data['metainfo']['name'] }}">
+{% endblock %}
+
 {% block require %}
   <link href="{{ url_for('static', filename='filetree.css') }}" rel="stylesheet" type="text/css">
 {% endblock %}

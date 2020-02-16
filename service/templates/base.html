@@ -1,18 +1,20 @@
 {% from 'bootstrap/nav.html' import render_nav_item %}
 {% from 'bootstrap/form.html' import render_form, render_field, render_form_row %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
-  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta http-equiv="content-type" content="text/html;charset=utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <meta name="keywords" content="磁力虫,磁力链,磁力链接,种子,磁力搜索,种子搜索,网盘搜索,电影资源,电视剧资源,热门电视剧,热门电影,电子书,歌曲,歌曲下载">
-  <meta name="description" content="磁力虫提供极简的磁力链搜索引擎，缩短获取有效并优质磁力链的时间成本。">
 
-  <title>magnet search</title>
+  {% block title %} {% endblock %}
+  {% block description %} {% endblock %}
+  {% block keywords %} {% endblock %}
+
   <link href="https://www.jqueryscript.net/css/jquerysctipttop.css" rel="stylesheet" type="text/css">
   <link href='https://fonts.googleapis.com/css?family=Quicksand' rel='stylesheet' type='text/css'>
   <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
-  <link href="{{ url_for('static', filename='favicon.ico') }}" rel="shortcut icon">
+  <link href="{{ url_for('static', filename='favicon.ico') }}" rel="shortcut icon" type="image/x-icon">
   {{ bootstrap.load_css() }}
   {% block require %} {% endblock %}
 </head>

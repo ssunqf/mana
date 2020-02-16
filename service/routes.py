@@ -105,7 +105,7 @@ def search():
                             css_framework='bootstrap4')
 
     return render_template('search.html',
-                           form=searchForm, results=results, pagination=pagination, **render_kwargs)
+                           query=query, category=category, form=searchForm, results=results, pagination=pagination, **render_kwargs)
 
 
 @app.route('/magnet', methods=['GET', 'POST'])

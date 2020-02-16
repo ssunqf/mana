@@ -2,6 +2,14 @@
 {% set humanfriendly = import('util.utils') %}
 {% set builtins = import('builtins') %}
 
+{% block title %}
+  <title>{{ query }} - 磁力虫</title>
+{% endblock %}
+
+{% block keywords %}
+  <meta name="keywords" content="{{ query }}">
+{% endblock %}
+
 {% block content %}
   <div class="table-responsive">
     <table class="table table-sm table-hover table-striped">

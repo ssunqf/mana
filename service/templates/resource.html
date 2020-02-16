@@ -2,6 +2,10 @@
 {% set humanfriendly = import('util.utils') %}
 {% set builtins = import('builtins') %}
 
+{% block title %}
+  <title>{{ type }} - 磁力虫</title>
+{% endblock %}
+
 {% block content %}
   <ul class="nav nav-tabs mb-3">
     {% for t in resources[type] %}
