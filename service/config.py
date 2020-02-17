@@ -9,7 +9,7 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 class Config(object):
     SECRET_KEY = 'private key'
 
-    SEND_FILE_MAX_AGE_DEFAULT = timedelta(seconds=1)
+    SEND_FILE_MAX_AGE_DEFAULT = timedelta(hours=1)
 
     CACHE_TYPE = 'redis'
     CACHE_DEFAULT_TIMEOUT = 240 * 60 * 60

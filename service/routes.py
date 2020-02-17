@@ -20,7 +20,7 @@ from util.douban import KEY_TEMPLATE, resources, fetch_data
 from util.torrent import build_dir_tree
 from util.utils import fetch_trackers
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='')
 app.config.from_object(Config)
 
 db_client = Torrent()
