@@ -19,16 +19,16 @@
           <th class="text-right" style="width:80px;">大小</th>
           <th class="text-center" style="width:60px;">类型</th>
           <th class="text-center" style="width:60px;">数量</th>
-          <th class="text-center" style="width:60px;"><i class="fa fa-arrow-up"></i></th>
-          <th class="text-center" style="width:60px;"><i class="fa fa-arrow-down"></i></th>
-          <th class="text-center" style="width:60px;"><i class="fa fa-check"></i></th>
+          <th class="text-center" style="width:60px;"><i class="fa fa-arrow-up" title="seeders|上传"></i></th>
+          <th class="text-center" style="width:60px;"><i class="fa fa-arrow-down" title="leechers|下载"></i></th>
+          <th class="text-center" style="width:60px;"><i class="fa fa-check" title="completed|完成"></i></th>
         </tr>
       </thead>
       <tbody>
         {% for result in results %}
           <tr>
             <td>
-              <a href="{{ './magnet?infohash='  + result['infohash'] }} ">
+              <a href="{{ './magnet?infohash='  + result['infohash'] }}" title="{{ result['metainfo']['name'] }} 磁力链">
                 <font size="2">{{ result['metainfo']['name'] }}</font>
               </a>
             </td>
