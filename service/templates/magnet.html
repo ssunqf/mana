@@ -33,9 +33,9 @@
         <i class="fa fa-check" title="completed|完成"><b>{{ data['completed'] }}</b> </i>
         (<b>{{ data['update_time'].strftime("%m/%d/%Y") }}更新</b>)
       </div>
-      <!--div>
-        关键词：{% for keyword in data['keywords'] %} <a href="{{ './search?query=' + keyword }}">{{ keyword }}</a> {% endfor %}
-      </div-->
+      <div>
+        关键词：{% for keyword in data['keywords'] %} <a href="/search?query={{ keyword }}&category=&limit=20">{{ keyword }}</a> {% endfor %}
+      </div>
     </div>
     <div class="card-footer">
       <button type="button" class="btn btn-info" onclick="window.location.href = '{{magnet}}';" title="下载工具已关联浏览器，请点这里">
