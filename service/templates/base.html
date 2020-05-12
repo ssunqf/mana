@@ -1,7 +1,6 @@
 {% from 'bootstrap/nav.html' import render_nav_item %}
 {% from 'bootstrap/form.html' import render_form, render_field, render_form_row %}
-<!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
   <!-- Global site tag (gtag.js) - Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=UA-158747111-1"></script>
@@ -34,9 +33,8 @@
 <body>
   <div class="container mb-3">
     <nav class="navbar navbar-expand-sm navbar-light bg-white">
-      <a class="navbar-brand" href="/" title="磁力虫首页">
-        <img class="img-responsive" style="width:30% height:30%" src="{{ url_for('static', filename='favicon.ico') }}" alt="磁力虫图标">
-        磁力虫
+      <a class="navbar-brand" href="/" title="cilichong home page">
+        <img class="img-responsive" style="width:30% height:30%" src="{{ url_for('static', filename='favicon.ico') }}" alt="cilichong icon">
       </a>
 
       <button class="navbar-toggler navbar-info" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
@@ -46,11 +44,11 @@
       <div class="collapse navbar-collapse" id="navbarNavDropdown">
         <ul class="navbar-nav mr-auto">
           <li class="nav-item">
-            <a class="nav-link" href="/" title="磁力虫首页">首页</a>
+            <a class="nav-link" href="/" title="cilichong home page">Home</a>
           </li>
-          {% for type in resources.keys() %}
+          {% for k, v in resources.items() %}
           <li class="nav-item">
-            <a class="nav-link" href="/resource?type={{type}}" title="{{ type }}资源">{{ type }}</a>
+            <a class="nav-link" href="/resource?type={{k}}" title="{{ k }} search results">{{ v.name }}</a>
           </li>
           {% endfor %}
         </ul>

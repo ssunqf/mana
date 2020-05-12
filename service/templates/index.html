@@ -1,22 +1,22 @@
 {% extends 'base.html' %}
 
 {% block title %}
-  <title>磁力虫 - 磁力链搜索引擎</title>
+  <title>cilichong - Magnet And Torrent Search Engine</title>
 {% endblock %}
 
 {% block description %}
-  <meta name="description" content="磁力虫提供极简的磁力链搜索引擎，缩短获取优质磁力链的时间成本。">
+  <meta name="description" content="a simple and useful magnet search engine. All magnet are verified and updated to ensure fast downloads">
 {% endblock %}
 
 {% block keywords %}
-  <meta name="keywords" content="磁力虫,磁力链,磁力链接,种子,磁力搜索,种子搜索,网盘搜索,电影资源,电视剧资源,热门电视剧,热门电影,电子书,歌曲,歌曲下载">
+  <meta name="keywords" content="cilichong,magnet,torrent,magnet search engine,torrent search engine,movie magnet,tv series magnet,music magnet,ebook magnet,album magnet,software magnet">
 {% endblock %}
 
 {% block content %}
   <div class="d-flex flex-column justify-content-center bg-light" style="height: 500px;">
-    <div class="d-flex justify-content-center">
-      <h1 class="h2">磁力虫</h1>
-    </div>
+    <!--div class="d-flex justify-content-center">
+      <h1 class="h2">cilichong</h1>
+    </div-->
     <div class="d-flex justify-content-center">
        {{ render_form(form, form_type="inline") }}
     </div>

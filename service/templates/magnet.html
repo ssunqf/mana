@@ -3,11 +3,11 @@
 {% set builtins = import('builtins') %}
 
 {% block title %}
-  <title>{{ data['metainfo']['name'] }} - 磁力虫</title>
+  <title>{{ data['metainfo']['name'] }} - cilichong</title>
 {% endblock %}
 
 {% block description %}
-  <meta name="description" content="{{ data['metainfo']['name'] }} 磁力链下载页">
+  <meta name="description" content="{{ data['metainfo']['name'] }} description page">
 {% endblock %}
 
 {% block require %}
@@ -21,28 +21,26 @@
     </div>
 
     <div class="card-body">
-      <div>
-        种子哈希：<a href="{{ magnet }}" title="磁力链">{{ data['infohash'] }}</a>
-      </div>
-      <div>文件类型：<b>{{ humanfriendly.format_category(data['category']) }}</b></div>
-      <div>文件数目：<b>{{ builtins.len(data['metainfo']['files']) if 'files' in data['metainfo'] else 1 }}</b></div>
-      <div>文件大小：<b>{{ humanfriendly.format_size(data['metainfo']['length']) }}</b></div>
-      <div>状态信息：
-        <i class="fa fa-arrow-up" title="seeders|上传"><b>{{ data['seeders'] }}</b> </i>
-        <i class="fa fa-arrow-down" title="leechers|下载"><b>{{ data['leechers'] }}</b> </i>
-        <i class="fa fa-check" title="completed|完成"><b>{{ data['completed'] }}</b> </i>
-        (<b>{{ data['update_time'].strftime("%m/%d/%Y") }}更新</b>)
+      <div> Info Hash: <a href="{{ magnet }}" title="Magnet Link">{{ data['infohash'] }}</a></div>
+      <div>  Category: <b>{{ humanfriendly.format_category(data['category']) }}</b></div>
+      <div>File Count: <b>{{ builtins.len(data['metainfo']['files']) if 'files' in data['metainfo'] else 1 }}</b></div>
+      <div> File Size: <b>{{ humanfriendly.format_size(data['metainfo']['length']) }}</b></div>
+      <div>    Status:
+        <i class="fa fa-arrow-up" title="seeders"><b>{{ data['seeders'] }}</b> </i>
+        <i class="fa fa-arrow-down" title="leechers"><b>{{ data['leechers'] }}</b> </i>
+        <i class="fa fa-check" title="completed"><b>{{ data['completed'] }}</b> </i>
+        (<b>{{ data['update_time'].strftime("%m/%d/%Y") }} updated</b>)
       </div>
       <div>
-        关键词：{% for keyword in data['keywords'] %} <a href="/search?query={{ keyword }}&category=&limit=20">{{ keyword }}</a> {% endfor %}
+        keywords: {% for keyword in data['keywords'] %} <a href="/search?query={{ keyword }}&category=&limit=20">{{ keyword }}</a> {% endfor %}
       </div>
     </div>
     <div class="card-footer">
-      <button type="button" class="btn btn-info" onclick="window.location.href = '{{magnet}}';" title="下载工具已关联浏览器，请点这里">
-        <span>打开磁力链</span>
+      <button type="button" class="btn btn-info" onclick="window.location.href = '{{magnet}}';" title="Open magnet link.">
+        <span>Open Magnet Link</span>
       </button>
-      <button type="button" class="btn btn-info" data-clipboard-text="{{magnet}}" title="复制到剪切板，请点这里">
-        <span>复制磁力链</span>
+      <button type="button" class="btn btn-info" data-clipboard-text="{{magnet}}" title="Copy to clipboard.">
+        <span>Copy Magnet Link</span>
       </button>
       <!--div class="font-weight-light">（如果打开无响应，设置浏览器关联相关软件（如迅雷），或者点击"复制磁力链"按钮复制到剪切板）</div-->
     </div>
@@ -51,7 +49,7 @@
       <a href="play?infohash={{ data['infohash'] }}">在线播放</a>
     </div -->
   <div class="card border-light mb-3">
-    <div class="card-header">文件列表：</div>
+    <div class="card-header">Files:</div>
     <div class="card-body">
       <ul class="main-tree">
         <li class="tree-title">{{ data['dir']['name'] }}<b> ({{ humanfriendly.format_size(data['dir']['length']) }})</b></li>

@@ -58,9 +58,9 @@ cartoon_tags = [
 ]
 
 resources = {
-    '电影': Type('电影', movie_tags),
-    '电视': Type('电视', tv_tags),
-    '动画': Type('动画', cartoon_tags)
+    '电影': Type('Movie', movie_tags),
+    '电视': Type('TV Series', tv_tags),
+    '动画': Type('Animation', cartoon_tags)
 }
 
 DOUBAN_KEY = 'DOUBAN'

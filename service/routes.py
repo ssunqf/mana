@@ -34,9 +34,9 @@ scheduler.start()
 
 class SearchForm(FlaskForm):
     query = StringField('Query',
-                        validators=[DataRequired(message='输入关键词。'),
-                                    Length(1, 100, message='长度请限制在100字符内。')])
-    category = SelectField('Category', choices=[('', '全部')] + categories)
+                        validators=[DataRequired(message='Input keywords.'),
+                                    Length(1, 100, message='length limit < 100')])
+    category = SelectField('Category', choices=[('', 'All')] + categories)
     submit = SubmitField('GO')
 
 
@@ -100,8 +100,7 @@ def search():
     pagination = Pagination(page=page,
                             per_page=limit if limit else 20,
                             total=results[0]['total'] if len(results) > 0 else 0,
-                            display_msg='''显示<b>{start}</b>到<b>{end}</b>的{record_name}，最多显示<b>{total}个</b>''',
-                            record_name='磁力信息',
+                            record_name='magnet info',
                             css_framework='bootstrap4')
 
     return render_template('search.html',
@@ -119,7 +118,7 @@ def magnet():
         return redirect('/search?query=%s&category=%s&limit=20' % (query, category))
 
     if not infohash or len(infohash) != 40:
-        flash('infohash参数错误', category='error')
+        flash('Invalid infohash.', category='error')
 
         return render_template('index.html', form=searchForm)
 
